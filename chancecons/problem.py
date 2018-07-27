@@ -155,16 +155,20 @@ class Problem(object):
 		# yields a relatively low constraint violation
 		constrs2 = self._regular_constraints
 		for cc in self._chance_constraints:
+			if cc.fraction == 0:   # Drop chance constraints that are not enforced
+				continue
+			
 			subsets = self.best_subset(cc.margins(), cc.max_violations)
 			for constr, subset in zip(cc.constraints, subsets):
-				if not np.any(subset):
-					continue
+				# if not np.any(subset):
+				#	continue
 				if isinstance(constr, NonPos):
 					constrs2 += [constr.expr[subset] <= 0]
 				elif isinstance(constr, Zero):
 					constrs2 += [constr.expr[subset] == 0]
 				else:
 					raise ValueError("Only (<=, ==, >=) constraints supported")
+		
 		prob2 = cvxprob.Problem(self._objective, constrs2)
 		prob2.solve(*args, **kwargs)   # TODO: Use warm start
 		
