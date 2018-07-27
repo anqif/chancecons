@@ -1,7 +1,6 @@
 import numpy as np
-from cvxpy.atoms import pos
-from cvxpy.variables import Variable
-from cvxpy.constraints import Zero, NonPos
+from cvxpy import Variable, Zero, NonPos
+from cvxpy.atoms import *
 
 # Add expression: Quantile([A*x <= b, ...], fraction)
 # 1. Replace with variable t.
@@ -21,11 +20,11 @@ class ChanceConstraint(object):
 			raise ValueError("fraction must be in [0,1]")
 		self.constraints = constraints
 		self.fraction = fraction
-		self.restriction = self.restrict(constraints, self.max_violations)
+		self.slope = Variable(nonneg = True)
 	
 	@property
-    def id(self):
-        return self.restriction.id
+	def id(self):
+		return self.restriction.id
 	
 	@property
 	def size(self):
@@ -58,19 +57,19 @@ class ChanceConstraint(object):
 	
 	def violation(self):
 		residual = self.residual
-        if residual is None:
-            raise ValueError("Cannot compute the violation of a chance "
+		if residual is None:
+			raise ValueError("Cannot compute the violation of a chance "
 							 "constraint whose expression is None-valued.")
-        return residual
+		return residual
     
-    def value(self, tolerance = 1e-8):
+	def value(self, tolerance = 1e-8):
 		residual = self.residual
-        if residual is None:
-            raise ValueError("Cannot compute the value of a chance "
+		if residual is None:
+			raise ValueError("Cannot compute the value of a chance "
 							 "constraint whose expression is None-valued.")
-        return np.all(residual <= tolerance)
+		return np.all(residual <= tolerance)
     
-    def get_data(self):
+	def get_data(self):
 		return [self.id]
 	
 	def save_dual_value(self, dual_value):
@@ -86,12 +85,11 @@ class ChanceConstraint(object):
 			margins += [value]
 		return margins
 	
-	@staticmethod
-	def restrict(constraints, max_violations):
-		alpha = Variable(nonneg = True)
+	@property
+	def restriction(self):
 		restricted = []
-		for constr in constraints:
+		for constr in self.constraints:
 			# Convert expr == 0 to |expr| <= 0 and apply hinge approximation
 			expr = abs(constr.expr) if isinstance(constr, Zero) else constr.expr
-			restricted += [sum(pos(alpha + expr))]
-		return sum(restricted) <= alpha*max_violations
+			restricted += [sum(pos(self.slope + expr))]
+		return sum(restricted) <= self.slope*self.max_violations

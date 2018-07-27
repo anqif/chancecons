@@ -1,5 +1,5 @@
 import numpy as np
-import cvxpy.setttings as s
+import cvxpy.settings as s
 import cvxpy.problems.problem as cvxprob
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints import Zero, NonPos
@@ -10,19 +10,19 @@ class Problem(object):
 			constraints = []
 		if chance_constraints is None:
 			chance_constraints = []
-		
+
 		# Check that objective is Minimize or Maximize.
-        if not isinstance(objective, (Minimize, Maximize)):
-            raise TypeError("Problem objective must be Minimize or Maximize.")
-        
+		if not isinstance(objective, (Minimize, Maximize)):
+			raise TypeError("Problem objective must be Minimize or Maximize.")
+			
         # Constraints and objective are immutable.
-        self._objective = objective
-        self._constraints = [c for c in constraints]
-        self._chance_constraints = [c for c in chance_constraints]
-        
-        self._vars = self._variables()
-        self._value = None
-        self._status = None
+		self._objective = objective
+		self._constraints = [c for c in constraints]
+		self._chance_constraints = [c for c in chance_constraints]
+		
+		self._vars = self._variables()
+		self._value = None
+		self._status = None
 	
 	@property
 	def value(self):
@@ -46,7 +46,7 @@ class Problem(object):
 	
 	def is_dcp(self):
 		constrs = self.constraints + self.chance_constraints
-		return all(exp.is_dcp() for exp in [self.objective] + constrs]
+		return all(exp.is_dcp() for exp in [self.objective] + constrs)
 	
 	@staticmethod
 	def best_subset(self, margins, max_violations):
@@ -65,11 +65,11 @@ class Problem(object):
 		offset = 0
 		for margin in margins:
 			vec = subset_vec[offset:(offset + margin.size)]
-			subset += [np.reshape(vec, margin.shape, order = "C")
-			offset += margin.size
+			subset += [np.reshape(vec, margin.shape, order = "C")]
+			offset = offset + margin.size
 		return subset
 
-    def solve(self, *args, **kwargs):
+	def solve(self, *args, **kwargs):
 		# First pass with convex restrictions
 		restrictions = [cc.restriction for cc in self._chance_constraints]
 		constrs1 = self._constraints + restrictions
