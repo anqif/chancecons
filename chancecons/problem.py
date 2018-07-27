@@ -3,13 +3,12 @@ import cvxpy.settings as s
 import cvxpy.problems.problem as cvxprob
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints import Zero, NonPos
+from chancecons.constraint import ChanceConstraint
 
 class Problem(object):
-	def __init__(self, objective, constraints = None, chance_constraints = None):
+	def __init__(self, objective, constraints = None):
 		if constraints is None:
 			constraints = []
-		if chance_constraints is None:
-			chance_constraints = []
 
 		# Check that objective is Minimize or Maximize.
 		if not isinstance(objective, (Minimize, Maximize)):
@@ -17,8 +16,13 @@ class Problem(object):
 			
         # Constraints and objective are immutable.
 		self._objective = objective
-		self._constraints = [c for c in constraints]
-		self._chance_constraints = [c for c in chance_constraints]
+		self._regular_constraints = []
+		self._chance_constraints = []
+		for constr in constraints:
+			if isinstance(constr, ChanceConstraint):
+				self._chance_constraints += [constr]
+			else:
+				self._regular_constraints += [constr]
 		
 		self._vars = self._variables()
 		self._value = None
@@ -38,7 +42,11 @@ class Problem(object):
 	
 	@property
 	def constraints(self):
-		return self._constraints[:]
+		return self._regular_constraints + self._chance_constraints
+	
+	@property
+	def regular_constraints(self):
+		return self._regular_constraints[:]
 	
 	@property
 	def chance_constraints(self):
@@ -48,10 +56,72 @@ class Problem(object):
 		constrs = self.constraints + self.chance_constraints
 		return all(exp.is_dcp() for exp in [self.objective] + constrs)
 	
+	def variables(self):
+		"""Accessor method for variables.
+
+		Returns
+		-------
+		list of :class:`~cvxpy.expressions.variable.Variable`
+			A list of the variables in the problem.
+		"""
+		return self._vars
+
+	def _variables(self):
+		vars_ = self.objective.variables()
+		for constr in self.constraints:
+			vars_ += constr.variables()
+		seen = set()
+		# never use list as a variable name
+		return [seen.add(obj.id) or obj for obj in vars_ if obj.id not in seen]
+
+	def parameters(self):
+		"""Accessor method for parameters.
+
+		Returns
+		-------
+		list of :class:`~cvxpy.expressions.constants.parameter.Parameter`
+			A list of the parameters in the problem.
+		"""
+		params = self.objective.parameters()
+		for constr in self.constraints:
+			params += constr.parameters()
+		return list(set(params))
+
+	def constants(self):
+		"""Accessor method for parameters.
+
+		Returns
+		-------
+		list of :class:`~cvxpy.expressions.constants.constant.Constant`
+			A list of the constants in the problem.
+		"""
+		const_dict = {}
+		constants_ = self.objective.constants()
+		for constr in self.constraints:
+			constants_ += constr.constants()
+		# Note that numpy matrices are not hashable, so we use the built-in
+		# function "id"
+		const_dict = {id(constant): constant for constant in constants_}
+		return list(const_dict.values())
+
+	def atoms(self):
+		"""Accessor method for atoms.
+
+		Returns
+		-------
+		list of :class:`~cvxpy.atoms.Atom`
+			A list of the atom types in the problem; note that this list
+			contains classes, not instances.
+		"""
+		atoms = self.objective.atoms()
+		for constr in self.constraints:
+			atoms += constr.atoms()
+		return list(set(atoms))
+
 	@staticmethod
-	def best_subset(self, margins, max_violations):
+	def best_subset(margins, max_violations):
 		# Convert list of margins into single vector
-		K = np.floor(max_violations)
+		K = int(np.round(max_violations))   # TODO: Should be np.floor, but floating point error causes issues
 		margin_vec = [margin.flatten("C") for margin in margins]
 		margin_vec = np.concatenate(margin_vec, axis = 0)
 		
@@ -72,7 +142,7 @@ class Problem(object):
 	def solve(self, *args, **kwargs):
 		# First pass with convex restrictions
 		restrictions = [cc.restriction for cc in self._chance_constraints]
-		constrs1 = self._constraints + restrictions
+		constrs1 = self._regular_constraints + restrictions
 		prob1 = cvxprob.Problem(self._objective, constrs1)
 		prob1.solve(*args, **kwargs)
 		
@@ -83,10 +153,12 @@ class Problem(object):
 		
 		# Second pass with exact bounds where solution of first pass
 		# yields a relatively low constraint violation
-		constrs2 = self._constraints
+		constrs2 = self._regular_constraints
 		for cc in self._chance_constraints:
-			subsets = self.best_subset(cc.margins, cc.max_violations)
+			subsets = self.best_subset(cc.margins(), cc.max_violations)
 			for constr, subset in zip(cc.constraints, subsets):
+				if not np.any(subset):
+					continue
 				if isinstance(constr, NonPos):
 					constrs2 += [constr.expr[subset] <= 0]
 				elif isinstance(constr, Zero):

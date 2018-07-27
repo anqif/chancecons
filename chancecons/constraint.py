@@ -1,5 +1,6 @@
 import numpy as np
 from cvxpy import Variable, Zero, NonPos
+from cvxpy.constraints.constraint import Constraint
 from cvxpy.atoms import *
 
 # Add expression: Quantile([A*x <= b, ...], fraction)
@@ -13,6 +14,9 @@ class ChanceConstraint(object):
 	def __init__(self, constraints = None, fraction = 1.0):
 		if constraints is None:
 			constraints = []
+		elif isinstance(constraints, Constraint):
+			constraints = [constraints]
+		
 		for constr in constraints:
 			if not isinstance(constr, (NonPos, Zero)):   # NonPos: expr <= 0, Zero: expr == 0
 				raise ValueError("Only (<=, ==, >=) constraints supported")
@@ -41,7 +45,7 @@ class ChanceConstraint(object):
 	
 	@property
 	def max_violations(self):
-		return (1 - self.fraction)*self.size
+		return (1.0 - self.fraction)*self.size
 	
 	def is_real(self):
 		return not self.is_complex()
@@ -75,6 +79,33 @@ class ChanceConstraint(object):
 	def save_dual_value(self, dual_value):
 		# self.dual_variables[0].save_value(dual_value)
 		raise NotImplementedError
+
+	def variables(self):
+		"""Returns all the variables present in the constraints including
+		the chance constraint slope.
+		"""
+		# Remove duplicates.
+		return [self.slope] + list(set(var for arg in self.constraints for var in arg.variables()))
+
+	def parameters(self):
+		"""Returns all the parameters present in the constraints.
+		"""
+		# Remove duplicates.
+		return list(set(param for cons in self.constraints for param in arg.parameters()))
+
+	def constants(self):
+		"""Returns all the constants present in the constraints.
+		"""
+		const_list = (const for arg in self.constraints for const in arg.constants())
+		# Remove duplicates:
+		const_dict = {id(constant): constant for constant in const_list}
+		return list(const_dict.values())
+	
+	def atoms(self):
+		"""Returns all the atoms present in the constraints.
+		"""
+		# Remove duplicates.
+		return list(set(atom for arg in self.constraints for atom in arg.atoms()))
 	
 	def margins(self):
 		margins = []

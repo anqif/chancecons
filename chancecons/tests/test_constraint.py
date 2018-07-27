@@ -8,7 +8,7 @@ class TestConstraint(BaseTest):
 	""" Unit tests for chance constraints"""
 	
 	def setUp(self):
-		np.random.seed(1)
+		# np.random.seed(1)
 		self.A = np.random.randn(10,2)
 		self.B = np.random.randn(15,3)
 		
