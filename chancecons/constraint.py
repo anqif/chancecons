@@ -1,15 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from cvxpy import Variable, Zero, NonPos
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.atoms import *
 
-# Add expression: Quantile([A*x <= b, ...], fraction)
-# 1. Replace with variable t.
-# 2. Add chance constraint a_i^Tx - b <= t for fraction i's
-# Only works for convex inequality constraints f_i(x) <= 0.
-
-# Look up references, this is a special case of majorization-minimization
-# on constraints with only 2 steps.
 class ChanceConstraint(object):
 	def __init__(self, constraints = None, fraction = 1.0):
 		if constraints is None:
@@ -91,7 +85,7 @@ class ChanceConstraint(object):
 		"""Returns all the parameters present in the constraints.
 		"""
 		# Remove duplicates.
-		return list(set(param for cons in self.constraints for param in arg.parameters()))
+		return list(set(param for arg in self.constraints for param in arg.parameters()))
 
 	def constants(self):
 		"""Returns all the constants present in the constraints.
@@ -115,6 +109,28 @@ class ChanceConstraint(object):
 				value = np.abs(value)
 			margins += [value]
 		return margins
+	
+	def plot_cdf(self, *args, **kwargs):
+		margins = self.margins()
+		if any(margin is None for margin in margins):
+			raise Exception("One or more margins is None.")
+		margin_vec = [margin.flatten("C") for margin in margins]
+		margin_vec = np.concatenate(margin_vec)
+		
+		x = np.sort(margin_vec)
+		y = np.arange(x.size)/float(x.size)
+		plt.plot(x, y, *args, **kwargs)
+		plt.axvline(0, color = 'grey', linestyle = '--')
+
+		# Trace fraction horizontally to curve, then vertically to x-intercept.
+		# plt.axhline(self.fraction, linestyle = '--')
+		idx = np.argmin(np.abs(y - self.fraction))
+		plt.plot(x[:(idx + 1)], np.full(idx + 1, self.fraction), color = 'grey', linestyle = '--')
+		plt.plot(np.full(idx + 1, x[idx]), y[:(idx + 1)], color = 'grey', linestyle = '--')
+		
+		plt.ylim(0, 1)
+		plt.xlim(x[0], x[-1])
+		plt.show()
 	
 	@property
 	def restriction(self):

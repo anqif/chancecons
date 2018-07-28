@@ -1,0 +1,8 @@
+1. Add atom (using reductions): Quantile([f_i(x) <= 0, ...], fraction)
+	a. Replace this atom with variable t.
+	b. Add chance constraint a_i^Tx - b <= t for fraction i's.
+	Note: Only works for convex inequality constraints f_i(x) <= 0.
+
+2. Look up references for a paper in Optima/Optimization Letters. 
+   This technique is a special case of majorization-minimization on 
+   constraints with only 2 steps.

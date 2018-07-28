@@ -1,6 +1,7 @@
 import numpy as np
 import cvxpy.settings as s
 import cvxpy.problems.problem as cvxprob
+from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints import Zero, NonPos
 from chancecons.constraint import ChanceConstraint
@@ -12,7 +13,7 @@ class Problem(object):
 
 		# Check that objective is Minimize or Maximize.
 		if not isinstance(objective, (Minimize, Maximize)):
-			raise TypeError("Problem objective must be Minimize or Maximize.")
+			raise DCPError("Problem objective must be Minimize or Maximize.")
 			
         # Constraints and objective are immutable.
 		self._objective = objective
@@ -27,6 +28,8 @@ class Problem(object):
 		self._vars = self._variables()
 		self._value = None
 		self._status = None
+		self._solver_stats = None
+		self._size_metrics = ChanceSizeMetrics(self)
 	
 	@property
 	def value(self):
@@ -53,8 +56,11 @@ class Problem(object):
 		return self._chance_constraints[:]
 	
 	def is_dcp(self):
-		constrs = self.constraints + self.chance_constraints
-		return all(exp.is_dcp() for exp in [self.objective] + constrs)
+		return all(exp.is_dcp() for exp in [self.objective] + self.constraints)
+	
+	def is_mixed_integer(self):
+		return any(v.attributes['boolean'] or v.attributes['integer']
+					for v in self.variables())
 	
 	def variables(self):
 		"""Accessor method for variables.
@@ -117,20 +123,32 @@ class Problem(object):
 		for constr in self.constraints:
 			atoms += constr.atoms()
 		return list(set(atoms))
+	
+	@property
+	def size_metrics(self):
+		""":class:`~cvxpy.problems.problem.SizeMetrics` : Information about the problem's size.
+		"""
+		return self._size_metrics
+
+	@property
+	def solver_stats(self):
+		""":class:`~cvxpy.problems.problem.SolverStats` : Information returned by the solver.
+		"""
+		return self._solver_stats
 
 	@staticmethod
 	def best_subset(margins, max_violations):
-		# Convert list of margins into single vector
-		K = int(np.round(max_violations))   # TODO: Should be np.floor, but floating point error causes issues
+		# Convert list of margins into single vector.
+		K = int(np.round(max_violations))   # TODO: Should be np.floor, but floating point error causes issues.
 		margin_vec = [margin.flatten("C") for margin in margins]
 		margin_vec = np.concatenate(margin_vec, axis = 0)
 		
-		# Form subset vector with True everywhere but the K largest margins
-		idx = np.argsort(margin_vec)[-K:]   # Select K largest margins
+		# Form subset vector with True everywhere but the K largest margins.
+		idx = np.argsort(margin_vec)[-K:]   # Select K largest margins.
 		subset_vec = np.full(margin_vec.shape, True)
 		subset_vec[idx] = False
 		
-		# Reshape subset vector into same shape as list of margins
+		# Reshape subset vector into same shape as list of margins.
 		subset = []
 		offset = 0
 		for margin in margins:
@@ -140,24 +158,22 @@ class Problem(object):
 		return subset
 
 	def solve(self, *args, **kwargs):
-		# First pass with convex restrictions
-		restrictions = [cc.restriction for cc in self._chance_constraints]
+		# First pass with convex restrictions.
+		chance_constraints = [cc for cc in self._chance_constraints if cc.fraction != 0]
+		restrictions = [cc.restriction for cc in chance_constraints]
 		constrs1 = self._regular_constraints + restrictions
 		prob1 = cvxprob.Problem(self._objective, constrs1)
 		prob1.solve(*args, **kwargs)
 		
-		# TODO: Handle statuses (e.g., infeasible first pass)
-		if prob1.status in s.INF_OR_UNB:
-			self._status = prob1.status
-			raise Exception("First pass failed with status", self.status)
+		# Terminate if first pass does not produce solution.
+		if prob1.status not in s.SOLUTION_PRESENT:
+			self.save_results(prob1)
+			raise SolverError("First pass failed with status", self.status)
 		
-		# Second pass with exact bounds where solution of first pass
-		# yields a relatively low constraint violation
+		# Replace chance constraints with exact bounds where solution of
+		# first pass yields a relatively low constraint violation.
 		constrs2 = self._regular_constraints
-		for cc in self._chance_constraints:
-			if cc.fraction == 0:   # Drop chance constraints that are not enforced
-				continue
-			
+		for cc in chance_constraints:
 			subsets = self.best_subset(cc.margins(), cc.max_violations)
 			for constr, subset in zip(cc.constraints, subsets):
 				# if not np.any(subset):
@@ -169,10 +185,72 @@ class Problem(object):
 				else:
 					raise ValueError("Only (<=, ==, >=) constraints supported")
 		
+		# Second pass with exact bounds.
 		prob2 = cvxprob.Problem(self._objective, constrs2)
-		prob2.solve(*args, **kwargs)   # TODO: Use warm start
-		
-		# TODO: Handle statuses and save results
-		self._status = prob2.status
-		self._value = prob2.value
+		prob2.solve(*args, **kwargs)
+		self.save_results(prob2)
 		return self.value
+
+	def save_results(self, problem):
+		self._status = problem.status
+		self._value = problem.value
+		self._solver_stats = problem.solver_stats
+	
+	def __neg__(self):
+		return Problem(-self.objective, self.constraints)
+
+	def __add__(self, other):
+		if other == 0:
+			return self
+		elif not isinstance(other, Problem):
+			return NotImplemented
+		return Problem(self.objective + other.objective,
+					   list(set(self.constraints + other.constraints)))
+
+	def __radd__(self, other):
+		if other == 0:
+			return self
+		else:
+			return NotImplemented
+
+	def __sub__(self, other):
+		if not isinstance(other, Problem):
+			return NotImplemented
+		return Problem(self.objective - other.objective,
+					   list(set(self.constraints + other.constraints)))
+
+	def __rsub__(self, other):
+		if other == 0:
+			return -self
+		else:
+			return NotImplemented
+
+	def __mul__(self, other):
+		if not isinstance(other, (int, float)):
+			return NotImplemented
+		return Problem(self.objective * other, self.constraints)
+
+	__rmul__ = __mul__
+
+	def __div__(self, other):
+		if not isinstance(other, (int, float)):
+			return NotImplemented
+		return Problem(self.objective * (1.0 / other), self.constraints)
+
+	__truediv__ = __div__
+
+class ChanceSizeMetrics(cvxprob.SizeMetrics):
+	"""Reports various metrics regarding the problem.
+	
+	Attributes
+	----------
+	num_scalar_cc_constr : integer
+	    The number of scalar chance constraints in the problem.
+	"""
+	def __init__(self, problem):
+		self.num_scalar_cc_constr = 0
+		for cc in problem.chance_constraints:
+			self.num_scalar_cc_constr += cc.size
+		super(ChanceSizeMetrics, self).__init__(problem)
+	
+	
