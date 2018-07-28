@@ -20,6 +20,20 @@ class ChanceConstraint(object):
 		self.fraction = fraction
 		self.slope = Variable(nonneg = True)
 	
+	def name(self):
+		return "({0}) for {1} of total elements" \
+					.format(", ".join(constr.name() for constr in self.constraints), self.fraction)
+	
+	def __str__(self):
+		"""Returns a string showing the mathematical constraint.
+		"""
+		return self.name()
+	
+	def __repr__(self):
+		"""Returns a string with information about the constraint.
+		"""
+		return "{0}({1}, {2})".format(self.__class__.__name__, repr(self.constraints), self.fraction)
+	
 	@property
 	def id(self):
 		return self.restriction.id

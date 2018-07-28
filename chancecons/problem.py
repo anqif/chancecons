@@ -168,7 +168,7 @@ class Problem(object):
 		# Terminate if first pass does not produce solution.
 		if prob1.status not in s.SOLUTION_PRESENT:
 			self.save_results(prob1)
-			raise SolverError("First pass failed with status", self.status)
+			raise SolverError("First pass failed with status {0}".format(self.status))
 		
 		# Replace chance constraints with exact bounds where solution of
 		# first pass yields a relatively low constraint violation.
@@ -195,6 +195,21 @@ class Problem(object):
 		self._status = problem.status
 		self._value = problem.value
 		self._solver_stats = problem.solver_stats
+	
+	def __str__(self):
+		if len(self.constraints) == 0:
+			return str(self.objective)
+		else:
+			subject_to = "subject to "
+			lines = [str(self.objective),
+					 subject_to + str(self.constraints[0])]
+			for constr in self.constraints[1:]:
+				lines += [len(subject_to) * " " + str(constr)]
+			return "\n".join(lines)
+	
+	def __repr__(self):
+		return "Problem({0}, {1}, {2})".format(repr(self.objective), \
+					repr(self.regular_constraints), repr(self.chance_constraints))
 	
 	def __neg__(self):
 		return Problem(-self.objective, self.constraints)
