@@ -32,7 +32,9 @@ class ChanceConstraint(object):
 	def __repr__(self):
 		"""Returns a string with information about the constraint.
 		"""
-		return "{0}({1}, {2})".format(self.__class__.__name__, repr(self.constraints), self.fraction)
+		return "%s(%s, %s)" % (self.__class__.__name__,
+						       repr(self.constraints),
+						       self.fraction)
 	
 	@property
 	def id(self):
