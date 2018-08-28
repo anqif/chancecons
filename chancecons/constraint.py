@@ -5,6 +5,14 @@ from cvxpy.constraints.constraint import Constraint
 from cvxpy.atoms import *
 
 class ChanceConstraint(object):
+	"""A chance constraint requires at least a given fraction of the specified
+	sub-constraints to hold. For instance, if x  is a variable and f(x) has
+	dimension n, the constraint Prob(f(x) <= 0) >= p is interpreted as f_i(x) <= 0
+	for at least np indices i = 1,...,n.
+	
+	Multiple sub-constraints will be treated as if their expressions are vectorized
+	and stacked in the form f(x) <= 0.
+	"""
 	def __init__(self, constraints = None, fraction = 1.0):
 		if constraints is None:
 			constraints = []
@@ -156,3 +164,39 @@ class ChanceConstraint(object):
 			expr = abs(constr.expr) if isinstance(constr, Zero) else constr.expr
 			restricted += [sum(pos(self.slope + expr))]
 		return sum(restricted) <= self.slope*self.max_violations
+
+class prob(object):
+	"""Syntatic sugar for constructing chance constraints.
+	"""
+	def __init__(self, *args):
+		self.constraints = list(args)
+	
+	def __eq__(self, other):
+        """Unsupported.
+        """
+        raise NotImplementedError("Strict equalities are not allowed.")
+
+    def __le__(self, other):
+        """ChanceConstraint : Creates an upper chance constraint.
+        """
+        flipped = []
+        for constr in self.constraints:
+			c = constr.copy()
+			c.args[0] = -c.args[0]
+			flipped += [c]
+        return ChanceConstraint(flipped, 1.0-other)
+
+    def __lt__(self, other):
+        """Unsupported.
+        """
+        raise NotImplementedError("Strict inequalities are not allowed.")
+
+    def __ge__(self, other):
+        """ChanceConstraint : Creates a lower chance constraint.
+        """
+        return ChanceConstraint(self.constraints, other)
+
+    def __gt__(self, other):
+        """Unsupported.
+        """
+        raise NotImplementedError("Strict inequalities are not allowed.")
