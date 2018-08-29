@@ -51,8 +51,8 @@ class quantile(AxisAtom):
         """Is the composition non-increasing in argument idx?
         """
         return False
-	
-	def is_pwl(self):
+
+    def is_pwl(self):
         """Is the atom piecewise linear?
         """
         return False
@@ -72,9 +72,9 @@ class quantile(AxisAtom):
         raise NotImplementedError("Strict equalities are not allowed.")
 
     def __le__(self, other):
-        """ChanceConstraint : Creates an upper percentile constraint.
+        """ChanceConstraint : Creates an upper quantile constraint.
         """
-        return ChanceConstraint([self.args[0] - other], 1.0-self.q)
+        return ChanceConstraint([self.args[0] <= other], self.q)
 
     def __lt__(self, other):
         """Unsupported.
@@ -82,9 +82,9 @@ class quantile(AxisAtom):
         raise NotImplementedError("Strict inequalities are not allowed.")
 
     def __ge__(self, other):
-        """ChanceConstraint : Creates a lower percentile constraint.
+        """ChanceConstraint : Creates a lower quantile constraint.
         """
-        return ChanceConstraint([other - self.args[0]], self.q)
+        return ChanceConstraint([self.args[0] >= other], 1.0-self.q)
 
     def __gt__(self, other):
         """Unsupported.
