@@ -6,7 +6,7 @@ from cvxpy.atoms import *
 
 class ChanceConstraint(object):
 	"""A chance constraint requires at least a given fraction of the specified
-	sub-constraints to hold. For instance, if x  is a variable and f(x) has
+	sub-constraints to hold. For instance, if x is a variable and f(x) has
 	dimension n, the constraint Prob(f(x) <= 0) >= p is interpreted as f_i(x) <= 0
 	for at least np indices i = 1,...,n.
 	
@@ -20,7 +20,7 @@ class ChanceConstraint(object):
 			constraints = [constraints]
 		
 		for constr in constraints:
-			if not isinstance(constr, (NonPos, Zero)):   # NonPos: expr <= 0, Zero: expr == 0
+			if not isinstance(constr, (NonPos, Zero)):   # NonPos: expr <= 0, Zero: expr == 0.
 				raise ValueError("Only (<=, ==, >=) constraints supported")
 		if fraction < 0 or fraction > 1:
 			raise ValueError("fraction must be in [0,1]")
@@ -59,7 +59,7 @@ class ChanceConstraint(object):
 	
 	@property
 	def dual_value(self):
-		raise NotImplementedError   # TODO: Save value of dual variable (on restriction)
+		raise NotImplementedError   # TODO: Save value of dual variable (on restriction).
 	
 	@property
 	def max_violations(self):
@@ -169,6 +169,9 @@ class prob(object):
 	"""Syntatic sugar for constructing chance constraints.
 	"""
 	def __init__(self, *args):
+		for arg in args:
+			if not isinstance(arg, (NonPos, Zero)):   # NonPos: expr <= 0, Zero: expr == 0.
+				raise ValueError("Only (<=, ==, >=) arguments supported")
 		self.constraints = list(args)
 	
 	def __eq__(self, other):
@@ -181,9 +184,10 @@ class prob(object):
         """
         flipped = []
         for constr in self.constraints:
-			c = constr.copy()
-			c.args[0] = -c.args[0]
-			flipped += [c]
+        	if isinstance(constr, NonPos):
+        		flipped += [constr.expr >= 0]   # Flip to non-negativity constraint.
+        	else:
+        		flipped += [constr]
         return ChanceConstraint(flipped, 1.0-other)
 
     def __lt__(self, other):
