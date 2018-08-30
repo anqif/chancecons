@@ -1,6 +1,7 @@
 import numpy as np
 import cvxpy.settings as s
 import cvxpy.problems.problem as cvxprob
+import cvxpy.constraints.constraint as cvxcons
 from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints import Zero, NonPos
@@ -14,7 +15,7 @@ class Problem(object):
 
 		# Check that objective is Minimize or Maximize.
 		if not isinstance(objective, (Minimize, Maximize)):
-			raise DCPError("Problem objective must be Minimize or Maximize.")
+			raise ValueError("Problem objective must be Minimize or Maximize.")
 			
         # Constraints and objective are immutable.
 		self._objective = objective
@@ -23,8 +24,10 @@ class Problem(object):
 		for constr in constraints:
 			if isinstance(constr, ChanceConstraint):
 				self._chance_constraints += [constr]
-			else:
+			elif isinstance(constr, cvxcons.Constraint):
 				self._regular_constraints += [constr]
+			else:
+				raise ValueError("Problem constraints must be of type Constraint or ChanceConstraint")
 		
 		self._vars = self._variables()
 		self._value = None
@@ -160,8 +163,10 @@ class Problem(object):
 
 	def solve(self, *args, **kwargs):
 		# Reduce quantile atoms in objective.
-		reduced = Problem(self._objective, self.constraints)
-		reduced, inv_data = Quantile2Chance().apply(reduced)
+		original = Problem(self._objective, self.constraints)
+		if not Quantile2Chance().accepts(original):
+			raise DCPError("Cannot convert quantiles to chance constraints")
+		reduced, inv_data = Quantile2Chance().apply(original)
 		
 		# First pass with convex restrictions.
 		chance_constraints = [cc for cc in reduced._chance_constraints if cc.fraction != 0]
@@ -193,10 +198,13 @@ class Problem(object):
 		# Second pass with exact bounds.
 		prob2 = cvxprob.Problem(reduced.objective, constrs2)
 		prob2.solve(*args, **kwargs)
-		self.save_results(prob2)
+		self.save_results(prob2, [Quantile2Chance()], inv_data)
 		return self.value
 
-	def save_results(self, problem):
+	def save_results(self, problem, solving_chain, inv_data):
+		# TODO: We don't use inv_data right now because Quantile2Chance
+		# just adds epigraph variables, so the reduced problem contains all
+		# the variables in the original problem (as well as same objective).
 		self._status = problem.status
 		self._value = problem.value
 		self._solver_stats = problem.solver_stats
@@ -272,5 +280,3 @@ class ChanceSizeMetrics(cvxprob.SizeMetrics):
 		for cc in problem.chance_constraints:
 			self.num_scalar_cc_constr += cc.size
 		super(ChanceSizeMetrics, self).__init__(problem)
-	
-	

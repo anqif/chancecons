@@ -1,5 +1,5 @@
 import numpy as np
-from cvxpy import Variable, Parameter, Minimize
+from cvxpy import Variable, Minimize, Maximize
 from cvxpy.atoms import *
 import chancecons.problem as ccprob
 from chancecons import quantile, ChanceConstraint
@@ -12,6 +12,7 @@ class TestQuantile(BaseTest):
 		np.random.seed(1)
 		self.A = np.random.randn(200,10)
 		self.x = Variable(10, name = "x")
+		self.y = Variable(50, name = "y")
 		self.f = np.random.uniform(0,1)
 		self.tolerance = 1e-3
 	
@@ -45,18 +46,47 @@ class TestQuantile(BaseTest):
 		prob.solve()
 		self.assertTrue(np.sum(self.x.value >= 1 - self.tolerance) >= np.round(1-0.7)*self.x.size)
 	
-	def test_reduction(self):
+	def test_basic_reduction(self):
+		# Minimize quantile(y, 0.5) subject to y >= 0.
 		t = Variable()
-		constr = [quantile(self.x, 0.5) <= t, self.x >= 0]
-		prob = ccprob.Problem(Minimize(t), constr)
-		prob.solve()
-		value_epi = prob.value
-		x_epi = self.x.value
+		constr = [quantile(self.y, 0.5) <= t, self.y >= 0]
+		prob0 = ccprob.Problem(Minimize(t), constr)
+		prob0.solve()
+		y_epi = self.y.value
 		
-		obj = quantile(self.x, 0.5)
-		constr = [self.x >= 0]
+		obj = quantile(self.y, 0.5)
+		constr = [self.y >= 0]
 		prob1 = ccprob.Problem(Minimize(obj), constr)
 		prob1.solve()
+		self.assertAlmostEqual(prob1.value, prob0.value)
+		self.assertItemsAlmostEqual(self.y.value, y_epi)
 		
-		self.assertAlmostEqual(prob1.value, value_epi)
+		# Maximize quantile(y, 0.75) subject to y <= 5.
+		constr = [quantile(self.y, 0.75) >= t, self.y <= 5]
+		prob0 = ccprob.Problem(Maximize(t), constr)
+		prob0.solve()
+		y_epi = self.y.value
+		
+		obj = quantile(self.y, 0.75)
+		constr = [self.y <= 5]
+		prob1 = ccprob.Problem(Maximize(obj), constr)
+		prob1.solve()
+		self.assertAlmostEqual(prob1.value, prob0.value)
+		self.assertItemsAlmostEqual(self.y.value, y_epi)
+		
+		# Minimize quantile(abs(A*x - b), 0.5)
+		#   subject to 0 <= x <= 1,
+		#              quantile(x, 0.25) >= 0.1
+		b = np.random.randn(self.A.shape[0])
+		constr = [quantile(abs(self.A*self.x - b), 0.5) <= t,
+				  self.x >= 0, self.x <= 1, quantile(self.x, 0.25) >= 0.1]
+		prob0 = ccprob.Problem(Minimize(t), constr)
+		prob0.solve()
+		x_epi = self.x.value
+		
+		obj = quantile(abs(self.A*self.x - b), 0.5)
+		constr = [self.x >= 0, self.x <= 1, quantile(self.x, 0.25) >= 0.1]
+		prob1 = ccprob.Problem(Minimize(obj), constr)
+		prob1.solve()
+		self.assertAlmostEqual(prob1.value, prob0.value)
 		self.assertItemsAlmostEqual(self.x.value, x_epi)

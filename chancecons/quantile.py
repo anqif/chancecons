@@ -1,4 +1,5 @@
 import numpy as np
+import cvxpy.lin_ops.lin_utils as lu
 from chancecons.constraint import ChanceConstraint
 from cvxpy.atoms.atom import Atom
 from cvxpy.atoms.axis_atom import AxisAtom
@@ -8,6 +9,7 @@ class quantile(AxisAtom):
 	"""
 	def __init__(self, x, q, axis = None, keepdims = False):
 		self.q = q
+		self.id = lu.get_id()
 		super(quantile, self).__init__(x, axis = axis, keepdims = keepdims)
 	
 	def validate_arguments(self):

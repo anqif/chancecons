@@ -1,6 +1,7 @@
 import numpy as np
 from cvxpy import Variable, Minimize
 from cvxpy.atoms import *
+from cvxpy.error import DCPError
 import chancecons.problem as ccprob
 from chancecons import ChanceConstraint, prob
 from chancecons.tests.base_test import BaseTest
@@ -96,6 +97,19 @@ class TestConstraint(BaseTest):
 		cc.slope.value = 0.5
 		val = np.sum(np.maximum(0.5 - self.U.value, 0)) - 0.5*0.8*(2*2)
 		self.assertItemsAlmostEqual(cc.restriction.expr.value, val)
+	
+	def test_dcp(self):
+		# Prob(g(x) >= 0) <= p is DCP iff g is convex.
+		constr = [ChanceConstraint(log(self.x) >= 0, 0.5)]
+		p = ccprob.Problem(Minimize(norm(self.x)), constr)
+		with self.assertRaises(DCPError) as cm:
+			p.solve()
+		
+		# Prob(h(x) <= 0) <= p is DCP iff h is concave.
+		constr = [ChanceConstraint(exp(self.x) <= 5, 0.8)]
+		p = ccprob.Problem(Minimize(norm(self.x)), constr)
+		with self.assertRaises(DCPError) as cm:
+			p.solve()
 	
 	def test_probability(self):
 		b = np.random.randn(self.A.shape[0])
