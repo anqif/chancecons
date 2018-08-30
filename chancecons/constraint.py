@@ -11,7 +11,7 @@ class ChanceConstraint(object):
 	for at least np indices i = 1,...,n.
 	
 	Multiple sub-constraints will be treated as if their expressions are vectorized
-	and stacked in the form f(x) <= 0.
+	and stacked in a single inequality.
 	"""
 	def __init__(self, constraints = None, fraction = 1.0):
 		if constraints is None:
@@ -175,32 +175,33 @@ class prob(object):
 		self.constraints = list(args)
 	
 	def __eq__(self, other):
-        """Unsupported.
-        """
-        raise NotImplementedError("Strict equalities are not allowed.")
-
-    def __le__(self, other):
-        """ChanceConstraint : Creates an upper chance constraint.
-        """
-        flipped = []
-        for constr in self.constraints:
-        	if isinstance(constr, NonPos):
-        		flipped += [constr.expr >= 0]   # Flip to non-negativity constraint.
-        	else:
-        		flipped += [constr]
-        return ChanceConstraint(flipped, 1.0-other)
-
-    def __lt__(self, other):
-        """Unsupported.
-        """
-        raise NotImplementedError("Strict inequalities are not allowed.")
-
-    def __ge__(self, other):
-        """ChanceConstraint : Creates a lower chance constraint.
-        """
-        return ChanceConstraint(self.constraints, other)
-
-    def __gt__(self, other):
-        """Unsupported.
-        """
-        raise NotImplementedError("Strict inequalities are not allowed.")
+		"""Unsupported.
+		"""
+		raise NotImplementedError("Strict equalities are not allowed.")
+	
+	def __le__(self, other):
+		"""ChanceConstraint : Creates an upper chance constraint.
+		"""
+		flipped = []
+		for constr in self.constraints:
+			if isinstance(constr, NonPos):
+				flipped += [constr.expr >= 0]   # Flip to non-negativity constraint.
+			else:
+				flipped += [constr]
+		return ChanceConstraint(flipped, 1.0-other)
+	
+	def __lt__(self, other):
+		"""Unsupported.
+		"""
+		raise NotImplementedError("Strict inequalities are not allowed.")
+	
+	def __ge__(self, other):
+		"""ChanceConstraint : Creates a lower chance constraint.
+		"""
+		return ChanceConstraint(self.constraints, other)
+	
+	def __gt__(self, other):
+		"""Unsupported.
+		"""
+		raise NotImplementedError("Strict inequalities are not allowed.")
+	

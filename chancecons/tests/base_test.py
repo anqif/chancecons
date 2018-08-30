@@ -22,27 +22,33 @@ from unittest import TestCase
 import numpy as np
 
 class BaseTest(TestCase):
-    # AssertAlmostEqual for lists.
-    def assertItemsAlmostEqual(self, a, b, places=4):
-        if np.isscalar(a):
-            a = [a]
-        else:
-            a = self.mat_to_list(a)
-        if np.isscalar(b):
-            b = [b]
-        else:
-            b = self.mat_to_list(b)
-        for i in range(len(a)):
-            self.assertAlmostEqual(a[i], b[i], places)
-
-    # Overriden method to assume lower accuracy.
-    def assertAlmostEqual(self, a, b, places=4):
-        super(BaseTest, self).assertAlmostEqual(a, b, places=places)
-
-    def mat_to_list(self, mat):
-        """Convert a numpy matrix to a list.
-        """
-        if isinstance(mat, (np.matrix, np.ndarray)):
-            return np.asarray(mat).flatten('F').tolist()
-        else:
-            return mat
+	# AssertAlmostEqual for lists.
+	def assertItemsAlmostEqual(self, a, b, places=4):
+		if np.isscalar(a):
+			a = [a]
+		else:
+			a = self.mat_to_list(a)
+		if np.isscalar(b):
+			b = [b]
+		else:
+			b = self.mat_to_list(b)
+		for i in range(len(a)):
+			self.assertAlmostEqual(a[i], b[i], places)
+	
+	# Overriden method to assume lower accuracy.
+	def assertAlmostEqual(self, a, b, places=4):
+		super(BaseTest, self).assertAlmostEqual(a, b, places=places)
+	
+	def assertAlmostLeq(self, a, b, tol=1e-4):
+		self.assertTrue(a - b <= tol)
+	
+	def assertAlmostGeq(self, a, b, tol=1e-4):
+		self.assertTrue(a - b >= -tol)
+	
+	def mat_to_list(self, mat):
+		"""Convert a numpy matrix to a list.
+		"""
+		if isinstance(mat, (np.matrix, np.ndarray)):
+			return np.asarray(mat).flatten('F').tolist()
+		else:
+			return mat
