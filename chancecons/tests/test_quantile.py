@@ -46,6 +46,17 @@ class TestQuantile(BaseTest):
 		self.assertTrue(np.sum(self.x.value >= 1 - self.tolerance) >= np.round(1-0.7)*self.x.size)
 	
 	def test_reduction(self):
-		obj = quantile(self.x, 0.5)
-		prob = ccprob.Problem(Minimize(obj))
+		t = Variable()
+		constr = [quantile(self.x, 0.5) <= t, self.x >= 0]
+		prob = ccprob.Problem(Minimize(t), constr)
 		prob.solve()
+		value_epi = prob.value
+		x_epi = self.x.value
+		
+		obj = quantile(self.x, 0.5)
+		constr = [self.x >= 0]
+		prob1 = ccprob.Problem(Minimize(obj), constr)
+		prob1.solve()
+		
+		self.assertAlmostEqual(prob1.value, value_epi)
+		self.assertItemsAlmostEqual(self.x.value, x_epi)
