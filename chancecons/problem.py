@@ -177,7 +177,7 @@ class Problem(object):
 		
 		# Terminate if first pass does not produce solution.
 		if prob1.status not in s.SOLUTION_PRESENT:
-			self.save_results(prob1)
+			self.save_results(prob1, [Quantile2Chance()], inv_data)
 			raise SolverError("First pass failed with status {0}".format(self.status))
 		
 		# Replace chance constraints with exact bounds where solution of

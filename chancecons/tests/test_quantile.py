@@ -46,7 +46,7 @@ class TestQuantile(BaseTest):
 		prob.solve()
 		self.assertTrue(np.sum(self.x.value >= 1 - self.tolerance) >= np.round(1-0.7)*self.x.size)
 	
-	def test_basic_reduction(self):
+	def test_reduction_basic(self):
 		# Minimize quantile(y, 0.5) subject to y >= 0.
 		t = Variable()
 		constr = [quantile(self.y, 0.5) <= t, self.y >= 0]
@@ -90,3 +90,51 @@ class TestQuantile(BaseTest):
 		prob1.solve()
 		self.assertAlmostEqual(prob1.value, prob0.value)
 		self.assertItemsAlmostEqual(self.x.value, x_epi)
+	
+	def test_reduction_nested(self):
+		# Minimize 2*quantile(y, 0.5)) + 1
+		#   subject to y >= 0.
+		t = Variable()
+		obj = 2*t + 1
+		constr = [quantile(self.y, 0.5) <= t, self.y >= 0]
+		prob0 = ccprob.Problem(Minimize(obj), constr)
+		prob0.solve()
+		y_epi = self.y.value
+		
+		obj = 2*quantile(self.y, 0.5) + 1
+		constr = [self.y >= 0]
+		prob1 = ccprob.Problem(Minimize(obj), constr)
+		prob1.solve()
+		self.assertAlmostEqual(prob1.value, prob0.value)
+		self.assertItemsAlmostEqual(self.y.value, y_epi)
+		
+		# Minimize -2*quantile(y, 0.75) + 3
+		#   subject to y <= 5.
+		obj = -2*t + 3
+		constr = [quantile(self.y, 0.75) >= t, self.y <= 5]
+		prob0 = ccprob.Problem(Minimize(obj), constr)
+		prob0.solve()
+		y_epi = self.y.value
+		
+		obj = -2*quantile(self.y, 0.75) + 3
+		constr = [self.y <= 5]
+		prob1 = ccprob.Problem(Minimize(obj), constr)
+		prob1.solve()
+		self.assertAlmostEqual(prob1.value, prob0.value)
+		self.assertItemsAlmostEqual(self.y.value, y_epi)
+		
+		# Minimize quantile(y, 0.75) - quantile(y, 0.5)
+		u = Variable()
+		obj = t - u
+		constr = [quantile(self.y, 0.75) <= t, quantile(self.y, 0.5) >= u,
+				  self.y >= 0, self.y <= 1]
+		prob0 = ccprob.Problem(Minimize(obj), constr)
+		prob0.solve()
+		y_epi = self.y.value
+		
+		obj = quantile(self.y, 0.75) - quantile(self.y, 0.5)
+		constr = [self.y >= 0, self.y <= 1]
+		prob1 = ccprob.Problem(Minimize(obj), constr)
+		prob1.solve()
+		self.assertAlmostEqual(prob1.value, prob0.value)
+		self.assertItemsAlmostEqual(self.y.value, y_epi)
