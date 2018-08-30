@@ -1,6 +1,6 @@
 import numpy as np
 import cvxpy.problems.problem as cvxprob
-from cvxpy import Variable, Parameter, Minimize
+from cvxpy import Variable, Minimize
 from cvxpy.atoms import *
 import chancecons.problem as ccprob
 from chancecons import ChanceConstraint
@@ -22,11 +22,11 @@ class TestProblem(BaseTest):
 		constr = [ChanceConstraint(self.x <= 0, 0.8)]
 		prob = ccprob.Problem(Minimize(obj), constr)
 		prob.solve()
-		self.assertTrue(np.sum(self.x.value <= self.tolerance) >= 0.8*self.x.size)
+		self.assertTrue(np.sum(self.x.value <= self.tolerance) <= 0.8*self.x.size)
 		
 		b = np.random.randn(self.A.shape[0])
 		obj = sum_squares(self.A*self.x - b)
 		constr = [ChanceConstraint(self.x >= 0, 0.8)]
 		prob = ccprob.Problem(Minimize(obj), constr)
 		prob.solve()
-		self.assertTrue(np.sum(self.x.value >= -self.tolerance) >= 0.8*self.x.size)
+		self.assertTrue(np.sum(self.x.value >= -self.tolerance) <= 0.8*self.x.size)
