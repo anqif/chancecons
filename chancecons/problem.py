@@ -5,6 +5,7 @@ from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints import Zero, NonPos
 from chancecons.constraint import ChanceConstraint
+from chancecons.quantile2chance import Quantile2Chance
 
 class Problem(object):
 	def __init__(self, objective, constraints = None):
@@ -143,10 +144,10 @@ class Problem(object):
 		margin_vec = [margin.flatten("C") for margin in margins]
 		margin_vec = np.concatenate(margin_vec, axis = 0)
 		
-		# Form subset vector with True everywhere but the K largest margins.
+		# Form subset vector with False everywhere but the K largest margins.
 		idx = np.argsort(margin_vec)[-K:]   # Select K largest margins.
-		subset_vec = np.full(margin_vec.shape, True)
-		subset_vec[idx] = False
+		subset_vec = np.full(margin_vec.shape, False)
+		subset_vec[idx] = True
 		
 		# Reshape subset vector into same shape as list of margins.
 		subset = []
@@ -158,11 +159,15 @@ class Problem(object):
 		return subset
 
 	def solve(self, *args, **kwargs):
+		# Reduce quantile atoms in objective.
+		reduced = Problem(self._objective, self.constraints)
+		reduced, inv_data = Quantile2Chance().apply(reduced)
+		
 		# First pass with convex restrictions.
-		chance_constraints = [cc for cc in self._chance_constraints if cc.fraction != 0]
+		chance_constraints = [cc for cc in reduced._chance_constraints if cc.fraction != 0]
 		restrictions = [cc.restriction for cc in chance_constraints]
-		constrs1 = self._regular_constraints + restrictions
-		prob1 = cvxprob.Problem(self._objective, constrs1)
+		constrs1 = reduced._regular_constraints + restrictions
+		prob1 = cvxprob.Problem(reduced.objective, constrs1)
 		prob1.solve(*args, **kwargs)
 		
 		# Terminate if first pass does not produce solution.
@@ -172,21 +177,21 @@ class Problem(object):
 		
 		# Replace chance constraints with exact bounds where solution of
 		# first pass yields a relatively low constraint violation.
-		constrs2 = self._regular_constraints
+		constrs2 = reduced._regular_constraints
 		for cc in chance_constraints:
-			subsets = self.best_subset(cc.margins(), cc.max_violations)
+			subsets = self.best_subset(cc.margins(), (1.0 - cc.fraction)*cc.size)
 			for constr, subset in zip(cc.constraints, subsets):
 				# if not np.any(subset):
 				#	continue
 				if isinstance(constr, NonPos):
-					constrs2 += [constr.expr[subset] <= 0]
+					constrs2 += [constr.expr[subset] >= 0]   # Flip direction of inequality.
 				elif isinstance(constr, Zero):
 					constrs2 += [constr.expr[subset] == 0]
 				else:
 					raise ValueError("Only (<=, ==, >=) constraints supported")
 		
 		# Second pass with exact bounds.
-		prob2 = cvxprob.Problem(self._objective, constrs2)
+		prob2 = cvxprob.Problem(reduced.objective, constrs2)
 		prob2.solve(*args, **kwargs)
 		self.save_results(prob2)
 		return self.value

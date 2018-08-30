@@ -5,13 +5,14 @@ from cvxpy.constraints.constraint import Constraint
 from cvxpy.atoms import *
 
 class ChanceConstraint(object):
-	"""A chance constraint requires at least a given fraction of the specified
-	sub-constraints to hold. For instance, if x is a variable and f(x) has
-	dimension n, the constraint Prob(f(x) <= 0) >= p is interpreted as f_i(x) <= 0
-	for at least np indices i = 1,...,n.
+	"""A chance constraint requires at most a given fraction of the specified
+	sub-constraints to hold. For instance, if x is a variable and g(x) has
+	dimension N, the constraint Prob(g(x) >= 0) <= p is interpreted as g_i(x) >= 0
+	for at most Np indices i = 1,...,N.
 	
-	Multiple sub-constraints will be treated as if their expressions are vectorized
-	and stacked in a single inequality.
+	Multiple sub-constraints will be treated as if their expressions were vectorized
+	and stacked in a single inequality. Equality constraints such as g(x) = 0 are
+	transformed into |g(x)| <= 0.
 	"""
 	def __init__(self, constraints = None, fraction = 1.0):
 		if constraints is None:
@@ -63,7 +64,7 @@ class ChanceConstraint(object):
 	
 	@property
 	def max_violations(self):
-		return (1.0 - self.fraction)*self.size
+		return self.fraction*self.size
 	
 	def is_real(self):
 		return not self.is_complex()
@@ -162,7 +163,7 @@ class ChanceConstraint(object):
 		for constr in self.constraints:
 			# Convert expr == 0 to |expr| <= 0 and apply hinge approximation
 			expr = abs(constr.expr) if isinstance(constr, Zero) else constr.expr
-			restricted += [sum(pos(self.slope + expr))]
+			restricted += [sum(pos(self.slope - expr))]
 		return sum(restricted) <= self.slope*self.max_violations
 
 class prob(object):
@@ -182,13 +183,7 @@ class prob(object):
 	def __le__(self, other):
 		"""ChanceConstraint : Creates an upper chance constraint.
 		"""
-		flipped = []
-		for constr in self.constraints:
-			if isinstance(constr, NonPos):
-				flipped += [constr.expr >= 0]   # Flip to non-negativity constraint.
-			else:
-				flipped += [constr]
-		return ChanceConstraint(flipped, 1.0-other)
+		return ChanceConstraint(self.constraints, other)
 	
 	def __lt__(self, other):
 		"""Unsupported.
@@ -198,7 +193,13 @@ class prob(object):
 	def __ge__(self, other):
 		"""ChanceConstraint : Creates a lower chance constraint.
 		"""
-		return ChanceConstraint(self.constraints, other)
+		flipped = []
+		for constr in self.constraints:
+			if isinstance(constr, NonPos):
+				flipped += [constr.expr >= 0]   # Flip direction of inequality.
+			else:
+				flipped += [constr]
+		return ChanceConstraint(flipped, 1.0 - other)
 	
 	def __gt__(self, other):
 		"""Unsupported.

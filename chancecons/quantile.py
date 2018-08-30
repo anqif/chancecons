@@ -1,5 +1,6 @@
 import numpy as np
-from chancecons import ChanceConstraint
+from chancecons.constraint import ChanceConstraint
+from cvxpy.atoms.atom import Atom
 from cvxpy.atoms.axis_atom import AxisAtom
 
 class quantile(AxisAtom):
@@ -23,6 +24,7 @@ class quantile(AxisAtom):
 							   self.args[0].name(), 
 							   self.q)
 	
+	@Atom.numpy_numeric
 	def numeric(self, values):
 		"""Returns the q-th percentile of x along the specified axis.
 		"""
@@ -70,15 +72,10 @@ class quantile(AxisAtom):
 		return self._axis_grad(values)
 	
 	# Convex restrictions
-	def __eq__(self, other):
-		"""Unsupported.
-		"""
-		raise NotImplementedError("Strict equalities are not allowed.")
-	
 	def __le__(self, other):
 		"""ChanceConstraint : Creates an upper quantile constraint.
 		"""
-		return ChanceConstraint([self.args[0] <= other], self.q)
+		return ChanceConstraint([self.args[0] >= other], 1.0 - self.q)
 	
 	def __lt__(self, other):
 		"""Unsupported.
@@ -88,7 +85,7 @@ class quantile(AxisAtom):
 	def __ge__(self, other):
 		"""ChanceConstraint : Creates a lower quantile constraint.
 		"""
-		return ChanceConstraint([self.args[0] >= other], self.q)
+		return ChanceConstraint([self.args[0] <= other], self.q)
 	
 	def __gt__(self, other):
 		"""Unsupported.
