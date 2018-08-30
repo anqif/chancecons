@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from cvxpy import Variable, Zero, NonPos
+from cvxpy import Variable, Parameter, Zero, NonPos
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.atoms import *
 
@@ -28,6 +28,7 @@ class ChanceConstraint(object):
 		self.constraints = constraints
 		self.fraction = fraction
 		self.slope = Variable(nonneg = True)
+		self.slack = 0
 	
 	def name(self):
 		return "({0}) for {1} of total elements" \
@@ -61,6 +62,12 @@ class ChanceConstraint(object):
 	@property
 	def dual_value(self):
 		raise NotImplementedError   # TODO: Save value of dual variable (on restriction).
+	
+	@property
+	def slack_value(self):
+		return self.slack.value if isinstance(self.slack, Variable) or \
+									isinstance(self.slack, Parameter) \
+								else self.slack
 	
 	@property
 	def max_violations(self):
@@ -132,7 +139,11 @@ class ChanceConstraint(object):
 			value = constr.expr.value
 			if value is not None and isinstance(constr, Zero):
 				value = np.abs(value)
-			margins += [value]
+			
+			if value is None or self.slack_value is None:
+				margins += [None]
+			else:
+				margins += [self.slack_value + value]
 		return margins
 	
 	def plot_cdf(self, *args, **kwargs):
@@ -163,7 +174,7 @@ class ChanceConstraint(object):
 		for constr in self.constraints:
 			# Convert expr == 0 to |expr| <= 0 and apply hinge approximation
 			expr = abs(constr.expr) if isinstance(constr, Zero) else constr.expr
-			restricted += [sum(pos(self.slope - expr))]
+			restricted += [sum(pos(self.slope - expr - self.slack))]
 		return sum(restricted) <= self.slope*self.max_violations
 
 class prob(object):

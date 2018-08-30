@@ -2,6 +2,7 @@ import numpy as np
 import cvxpy.settings as s
 import cvxpy.problems.problem as cvxprob
 import cvxpy.constraints.constraint as cvxcons
+from cvxpy import Variable
 from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints import Zero, NonPos
@@ -162,6 +163,9 @@ class Problem(object):
 		return subset
 
 	def solve(self, *args, **kwargs):
+		use_2step = kwargs.pop("two_step", True)
+		use_slack = kwargs.pop("slack", False)
+		
 		# Reduce quantile atoms in objective.
 		original = Problem(self._objective, self.constraints)
 		if not Quantile2Chance().accepts(original):
@@ -170,6 +174,8 @@ class Problem(object):
 		
 		# First pass with convex restrictions.
 		chance_constraints = [cc for cc in reduced._chance_constraints if cc.fraction != 0]
+		for cc in chance_constraints:   # Define slack variable for each chance constraint.
+			cc.slack = Variable(nonneg = True) if use_slack else 0
 		restrictions = [cc.restriction for cc in chance_constraints]
 		constrs1 = reduced._regular_constraints + restrictions
 		prob1 = cvxprob.Problem(reduced.objective, constrs1)
@@ -179,6 +185,10 @@ class Problem(object):
 		if prob1.status not in s.SOLUTION_PRESENT:
 			self.save_results(prob1, [Quantile2Chance()], inv_data)
 			raise SolverError("First pass failed with status {0}".format(self.status))
+		
+		if not use_2step:
+			self.save_results(prob1, [Quantile2Chance()], inv_data)
+			return self.value
 		
 		# Replace chance constraints with exact bounds where solution of
 		# first pass yields a relatively low constraint violation.
