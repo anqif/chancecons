@@ -30,7 +30,7 @@ class quantile(AxisAtom):
 	def numeric(self, values):
 		"""Returns the q-th percentile of x along the specified axis.
 		"""
-		return np.percentile(values[0], self.q, axis = self.axis)
+		return np.percentile(values[0], 100*self.q, axis = self.axis)
 	
 	def sign_from_args(self):
 		"""Returns sign (is positive, is negative) of the expression.

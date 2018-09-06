@@ -3,8 +3,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from cvxpy import Variable, Minimize, Maximize
 from cvxpy.atoms import *
-from chancecons import Problem, quantile, prob
+from cvxpy.error import SolverError
+from chancecons import ChanceConstraint, Problem, quantile, prob
 from chancecons.tests.base_test import BaseTest
+
+def plot_cdf(x, *args, **kwargs):
+	x_sort = np.sort(x)
+	cum = np.cumsum(x_sort)
+	plt.plot(x_sort, cum/cum[-1], *args, **kwargs)
+	plt.ylim(0,1)
 
 class TestExamples(BaseTest):
 	"""Unit tests for chance constraint examples."""
@@ -83,11 +90,11 @@ class TestExamples(BaseTest):
 		# plt.show()
 	
 	def test_treatment(self):
-		m = 1000
-		n = 200
-		labels = (np.random.rand(m) > 0.2).astype(int)
-		A = np.random.rand(m,n)
+		m = 1000   # voxels
+		n = 200    # beams
 		dose = 1.0
+		A = np.random.rand(m,n)
+		labels = (np.random.rand(m) > 0.2).astype(int)
 		
 		# Dose matrix with target voxels receive ~3x radiation of non-target voxels.
 		# Label 0 = tumor, label 1 = organ-at-risk.
@@ -95,7 +102,8 @@ class TestExamples(BaseTest):
 		for i, label in enumerate(labels):
 			if label == 0:
 				A[i,:] *= FACTOR
-
+		
+		# Solve radiation treatment planning problem.
 		x = Variable(n)
 		y = Variable(m)
 		y_ptv = y[labels == 0]
@@ -105,7 +113,26 @@ class TestExamples(BaseTest):
 				  quantile(y_ptv,0.15) <= 1.05, quantile(y_ptv,0.85) >= 0.9,
 				  quantile(y_oar,0.5) <= 0.4]
 		p = Problem(Minimize(obj), constr)
-		p.solve()
 		
-		# TODO: Plot cumulative distribution function for 1st and 2nd step.
-		# TODO: Add more constraints and enable slack.
+		# Plot cumulative distribution function for 1st and 2nd step.
+		p.solve(two_step = False, slack = False)
+		plot_cdf(y_oar.value, "b--")
+		plot_cdf(y_ptv.value, "r--")
+		
+		p.solve(two_step = True, slack = False)
+		plot_cdf(y_oar.value, "b-")
+		plot_cdf(y_ptv.value, "r-")
+		# TODO: Label constraints on plot.
+		# plt.show()
+		
+		# Add more tumor constraints and solve problem with slack.
+		constr += [quantile(y_ptv,0.99) >= 0.99, quantile(y_ptv,0.01) <= 1.01]
+		p = Problem(Minimize(obj), constr)
+		# with self.assertRaises(SolverError) as cm:
+		#	p.solve(slack = False)
+		
+		# TODO: Plot cumulative distribution function of slack solution.
+		# p.solve(two_step = True, slack = True)
+		plot_cdf(y_oar.value, "b-")
+		plot_cdf(y_ptv.value, "r-")
+		# plt.show()
