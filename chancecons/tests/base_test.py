@@ -20,6 +20,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 # Base class for unit tests.
 from unittest import TestCase
 import numpy as np
+import matplotlib.pyplot as plt
 
 class BaseTest(TestCase):
 	# AssertAlmostEqual for lists.
@@ -52,3 +53,9 @@ class BaseTest(TestCase):
 			return np.asarray(mat).flatten('F').tolist()
 		else:
 			return mat
+	
+	def plot_cdf(self, x, *args, **kwargs):
+		x_sort = np.sort(x)
+		prob = np.arange(1,len(x)+1)/len(x)
+		plt.plot(x_sort, prob, *args, **kwargs)
+		plt.ylim(0,1)

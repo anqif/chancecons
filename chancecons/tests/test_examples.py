@@ -7,12 +7,6 @@ from cvxpy.error import SolverError
 from chancecons import ChanceConstraint, Problem, quantile, prob
 from chancecons.tests.base_test import BaseTest
 
-def plot_cdf(x, *args, **kwargs):
-	x_sort = np.sort(x)
-	prob = np.arange(1,len(x)+1)/len(x)
-	plt.plot(x_sort, prob, *args, **kwargs)
-	plt.ylim(0,1)
-
 class TestExamples(BaseTest):
 	"""Unit tests for chance constraint examples."""
 	
@@ -116,12 +110,12 @@ class TestExamples(BaseTest):
 		
 		# Plot CDF for 1st and 2nd step.
 		p.solve(two_step = False, slack = False)
-		plot_cdf(y_oar.value, "b--")
-		plot_cdf(y_ptv.value, "r--")
+		self.plot_cdf(y_oar.value, "b--")
+		self.plot_cdf(y_ptv.value, "r--")
 		
 		p.solve(two_step = True, slack = False)
-		plot_cdf(y_oar.value, "b-")
-		plot_cdf(y_ptv.value, "r-")
+		self.plot_cdf(y_oar.value, "b-")
+		self.plot_cdf(y_ptv.value, "r-")
 		
 		# Label constraints on plot.
 		plt.plot(1.0, 0.15, marker = "<", markersize = self.markersize, color = "red")
@@ -157,9 +151,9 @@ class TestExamples(BaseTest):
 		p.solve(two_step = True, slack = False)
 		
 		# Plot CDF of 2-step solution.
-		# plot_cdf(y_oar.value, "b-")
-		# plot_cdf(y_ptv.value, "r-")
-		# plt.plot(0.95, 0.85, marker = ">", markersize = self.markersize, color = "red")
+		# self.plot_cdf(y_oar.value, "b-")
+		# self.plot_cdf(y_ptv.value, "r-")
+		plt.plot(0.95, 0.85, marker = ">", markersize = self.markersize, color = "red")
 		# plt.show()
 		
 		# First pass infeasible with additional constraint.
@@ -170,19 +164,18 @@ class TestExamples(BaseTest):
 		
 		# Plot CDF of slack solution with constraint.
 		p.solve(two_step = False, slack = True)
-		plot_cdf(y_oar.value, "b--")
-		plot_cdf(y_ptv.value, "r--")
-		q1 = quantile(y_oar,0.3).value
+		self.plot_cdf(y_oar.value, "b--")
+		self.plot_cdf(y_ptv.value, "r--")
+		qt = quantile(y_oar,0.3).value
 		
 		p.solve(two_step = True, slack = True)
-		plot_cdf(y_oar.value, "b-")
-		plot_cdf(y_ptv.value, "r-")
+		self.plot_cdf(y_oar.value, "b-")
+		self.plot_cdf(y_ptv.value, "r-")
 		
 		# Label original and slack bound.
-		plt.plot(0.95, 0.85, marker = ">", markersize = self.markersize, color = "red")
-		plt.plot(q1, 0.3, marker = "<", markersize = self.markersize, color = "blue")
+		plt.plot(qt, 0.3, marker = "<", markersize = self.markersize, color = "blue")
 		plt.plot(0.15, 0.3, marker = "<", markersize = self.markersize, color = "blue")
-		plt.plot([0.15, q1], [0.3, 0.3], "b-")
+		plt.plot([0.15, qt], [0.3, 0.3], "b-")
 		plt.axvline(dose, color = "red", linestyle = ":", linewidth = 1.0)
 		plt.xlim(0,1.2)
 		# plt.savefig("radiation_slack.pdf", bbox_inches = "tight", pad_inches = 0)
