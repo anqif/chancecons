@@ -66,7 +66,7 @@ class ChanceConstraint(object):
 	@property
 	def slack_value(self):
 		return self.slack.value if isinstance(self.slack, Variable) or \
-									isinstance(self.slack, Parameter) \
+								   isinstance(self.slack, Parameter) \
 								else self.slack
 	
 	@property
@@ -156,7 +156,7 @@ class ChanceConstraint(object):
 		x = np.sort(margin_vec)
 		y = np.arange(x.size)/float(x.size)
 		plt.plot(x, y, *args, **kwargs)
-		plt.axvline(0, color = 'grey', linestyle = '--')
+		plt.axvline(0, color = 'grey', linestyle = ':', linewidth = 1.0)
 
 		# Trace fraction horizontally to curve, then vertically to x-intercept.
 		# plt.axhline(self.fraction, linestyle = '--')
