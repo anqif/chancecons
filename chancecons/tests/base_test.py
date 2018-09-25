@@ -57,5 +57,6 @@ class BaseTest(TestCase):
 	def plot_cdf(self, x, *args, **kwargs):
 		x_sort = np.sort(x)
 		prob = np.arange(1,len(x)+1)/len(x)
-		plt.plot(x_sort, prob, *args, **kwargs)
+		handle = plt.plot(x_sort, prob, *args, **kwargs)
 		plt.ylim(0,1)
+		return handle

@@ -30,6 +30,7 @@ class TestExamples(BaseTest):
 		
 		print("Objective:", p.value)
 		print("Chance constraint fraction:", np.mean(A.dot(x.value) <= 0))
+		print("Margin cutoff:", np.percentile(constr[0].margins(), q = 75))
 	
 	def test_portfolio(self):
 		n = 10
@@ -41,7 +42,8 @@ class TestExamples(BaseTest):
 		
 		# Optimal portfolio.
 		x = Variable(n)
-		ret = sum(price*x)/self.N
+		# ret = sum(price*x)/self.N
+		ret = p_bar.T*x
 		constr = [sum(x) == 1, x >= -0.1, prob(price*x <= 0) <= beta]
 		p = Problem(Maximize(ret), constr)
 		p.solve(solver = "MOSEK")
@@ -49,6 +51,7 @@ class TestExamples(BaseTest):
 		print("Optimal portfolio")
 		print("Expected return:", ret.value)
 		print("Fraction nonpositive:", np.mean(price.dot(x.value) <= 0))
+		print("Standard Deviation", np.std(ret_opt))
 		
 		# Optimal portfolio without loss risk constraint.
 		constr = [sum(x) == 1, x >= -0.1]
@@ -58,6 +61,7 @@ class TestExamples(BaseTest):
 		print("\nOptimal portfolio without loss risk constraint")
 		print("Expected return", ret.value)
 		print("Fraction nonpositive", np.mean(price.dot(x.value) <= 0))
+		print("Standard Deviation", np.std(ret_nocc))
 		
 		# Uniform portfolio.
 		x_unif = np.ones(n)/n
@@ -73,8 +77,8 @@ class TestExamples(BaseTest):
 			plt.subplot(3,1,i+1)
 			sns.distplot(rets[i], hist = False, kde = True, color = "blue")
 			plt.axvline(np.mean(rets[i]), color = "red")
-			plt.xlim(-10,20)
-			plt.ylim(0,0.225)
+			plt.xlim(-10,25)
+			plt.ylim(0,0.275)
 			plt.title(titles[i])
 			plt.gca().axes.get_yaxis().set_visible(False)
 			plt.gca().axes.get_xaxis().set_ticks_position("both")
@@ -104,7 +108,7 @@ class TestExamples(BaseTest):
 		y_oar = y[labels == 1]
 		obj = sum(neg(y_ptv - dose) + 2*pos(y_ptv - dose)) + sum(1.6*pos(y_oar))
 		constr = [A*x == y, x >= 0, 
-				  quantile(y_ptv,0.15) <= 1.0, quantile(y_ptv,0.85) >= 0.95,
+				  quantile(y_ptv,0.85) >= 0.95, quantile(y_ptv,0.15) <= 1.0,
 				  quantile(y_oar,0.5) <= 0.35]
 		p = Problem(Minimize(obj), constr)
 		
@@ -114,15 +118,16 @@ class TestExamples(BaseTest):
 		self.plot_cdf(y_ptv.value, "r--")
 		
 		p.solve(two_step = True, slack = False)
-		self.plot_cdf(y_oar.value, "b-")
-		self.plot_cdf(y_ptv.value, "r-")
+		oar, = self.plot_cdf(y_oar.value, "b-")
+		ptv, = self.plot_cdf(y_ptv.value, "r-")
 		
 		# Label constraints on plot.
-		plt.plot(1.0, 0.15, marker = "<", markersize = self.markersize, color = "red")
 		plt.plot(0.95, 0.85, marker = ">", markersize = self.markersize, color = "red")
+		plt.plot(1.0, 0.15, marker = "<", markersize = self.markersize, color = "red")
 		plt.plot(0.35, 0.5, marker = "<", markersize = self.markersize, color = "blue")
 		plt.axvline(dose, color = "red", linestyle = ":", linewidth = 1.0)
 		plt.xlim(0,1.2)
+		plt.legend([oar, ptv], ["OAR", "PTV"])
 		# plt.savefig("radiation_2step.pdf", bbox_inches = "tight", pad_inches = 0)
 		# plt.show()
 	
@@ -145,8 +150,8 @@ class TestExamples(BaseTest):
 		y = Variable(m)
 		y_ptv = y[labels == 0]
 		y_oar = y[labels == 1]
-		obj = 2.5*sum(neg(y_ptv - dose) + 2*pos(y_ptv - dose)) + sum(1.6*pos(y_oar))
-		constr = [A*x == y, x >= 0, quantile(y_ptv,0.85) >= 0.95]
+		obj = sum(2.5*neg(y_ptv - dose) + 5*pos(y_ptv - dose)) + sum(1.6*pos(y_oar))
+		constr = [A*x == y, x >= 0, quantile(y_ptv,0.85) >= 0.95, quantile(y_ptv,0.15) <= 1.0]
 		p = Problem(Minimize(obj), constr)
 		p.solve(two_step = True, slack = False)
 		
@@ -154,6 +159,7 @@ class TestExamples(BaseTest):
 		# self.plot_cdf(y_oar.value, "b-")
 		# self.plot_cdf(y_ptv.value, "r-")
 		plt.plot(0.95, 0.85, marker = ">", markersize = self.markersize, color = "red")
+		plt.plot(1.0, 0.15, marker = "<", markersize = self.markersize, color = "red")
 		# plt.show()
 		
 		# First pass infeasible with additional constraint.
@@ -167,16 +173,18 @@ class TestExamples(BaseTest):
 		self.plot_cdf(y_oar.value, "b--")
 		self.plot_cdf(y_ptv.value, "r--")
 		qt = quantile(y_oar,0.3).value
+		print("OAR quantile with slack", qt)
 		
 		p.solve(two_step = True, slack = True)
-		self.plot_cdf(y_oar.value, "b-")
-		self.plot_cdf(y_ptv.value, "r-")
+		oar, = self.plot_cdf(y_oar.value, "b-")
+		ptv, = self.plot_cdf(y_ptv.value, "r-")
 		
 		# Label original and slack bound.
-		plt.plot(qt, 0.3, marker = "<", markersize = self.markersize, color = "blue")
-		plt.plot(0.15, 0.3, marker = "<", markersize = self.markersize, color = "blue")
 		plt.plot([0.15, qt], [0.3, 0.3], "b-")
+		plt.plot(qt, 0.3, marker = "<", markersize = self.markersize, color = "blue", markerfacecolor = "white", markeredgecolor = "blue")
+		plt.plot(0.15, 0.3, marker = "<", markersize = self.markersize, color = "blue")
 		plt.axvline(dose, color = "red", linestyle = ":", linewidth = 1.0)
 		plt.xlim(0,1.2)
-		# plt.savefig("radiation_slack.pdf", bbox_inches = "tight", pad_inches = 0)
-		# plt.show()
+		plt.legend([oar, ptv], ["OAR", "PTV"])
+		plt.savefig("radiation_slack.pdf", bbox_inches = "tight", pad_inches = 0)
+		plt.show()
