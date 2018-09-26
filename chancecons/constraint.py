@@ -13,8 +13,12 @@ class ChanceConstraint(object):
 	Multiple sub-constraints will be treated as if their expressions were vectorized
 	and stacked in a single inequality. Equality constraints such as g(x) = 0 are
 	transformed into |g(x)| <= 0.
+	
+	With weights w, the chance constraint becomes \sum_{i=1}^N w_i I(g_i(x) >= 0) <= p,
+	where sum(w) = 1 and I() is the indicator function. The default is uniform weights,
+	i.e., w_i = 1/N for i = 1,...,N.
 	"""
-	def __init__(self, constraints = None, fraction = 1.0):
+	def __init__(self, constraints = None, fraction = 1.0, weights = None):
 		if constraints is None:
 			constraints = []
 		elif isinstance(constraints, Constraint):
@@ -25,8 +29,19 @@ class ChanceConstraint(object):
 				raise ValueError("Only (<=, ==, >=) constraints supported")
 		if fraction < 0 or fraction > 1:
 			raise ValueError("fraction must be in [0,1]")
+		
+		if weights is None:   # Defaults to uniform weights.
+			size = sum([constr.size for constr in constraints])
+			weights = [np.full((constr.size,), 1.0/size) for constr in constraints]
+		elif len(weights) != len(constraints):
+			raise ValueError("weights must have same length as list of constraints")
+		for constr, weight in zip(constraints, weights):
+			if weight.shape != (constr.size,):
+				raise ValueError("Each weight must be a vector of same length as size of its corresponding constraint")
+		
 		self.constraints = constraints
 		self.fraction = fraction
+		self.weights = weights
 		self.slope = Variable(nonneg = True)
 		self.slack = 0
 	
@@ -171,11 +186,11 @@ class ChanceConstraint(object):
 	@property
 	def restriction(self):
 		restricted = []
-		for constr in self.constraints:
+		for constr, weight in zip(self.constraints, self.weights):
 			# Convert expr == 0 to |expr| <= 0 and apply hinge approximation
 			expr = abs(constr.expr) if isinstance(constr, Zero) else constr.expr
-			restricted += [sum(pos(self.slope - expr - self.slack))]
-		return sum(restricted) <= self.slope*self.max_violations
+			restricted += [weight.T*pos(self.slope - expr - self.slack)]
+		return sum(restricted) <= self.slope*self.fraction
 
 class prob(object):
 	"""Syntatic sugar for constructing chance constraints.
