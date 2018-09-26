@@ -214,7 +214,7 @@ class Problem(object):
 	def save_results(self, problem, solving_chain, inv_data):
 		# TODO: We don't use inv_data right now because Quantile2Chance
 		# just adds epigraph variables, so the reduced problem contains all
-		# the variables in the original problem (as well as same objective).
+		# the variables in the original problem (as well as the same objective).
 		self._status = problem.status
 		self._value = problem.value
 		self._solver_stats = problem.solver_stats

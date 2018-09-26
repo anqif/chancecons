@@ -6,3 +6,18 @@
 2. Look up references for a paper in Optima/Optimization Letters. 
    This technique is a special case of majorization-minimization on 
    constraints with only 2 steps.
+
+3. Allow user to specify weights on constraints. Then the constraint is 
+   \sum_{i=1}^n w_i*1{f_i(x) <= 0} <= p, where \sum_{i=1}^n w_i = 1. 
+   By default, weights are uniform, i.e., w_i = 1/n for i = 1,...,n.
+
+4. In paper, introduce problem as f_i(x) <= 0 for a fraction p of 
+   i = 1,...,n. Elaborate that this is specific case of probabilistic 
+   constraint where the probability distribution is discrete.
+
+5. Support vector machine/robust fitting example, e.g., minimize l2-norm 
+   subject to constraint that no more than a fraction p of points are 
+   misclassified.
+
+6. Determine general method for reducing quantiles to solvable chance 
+   constrained problem.
