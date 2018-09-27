@@ -28,6 +28,33 @@ class TestConstraint(BaseTest):
 		self.assertEqual(ChanceConstraint([self.x >= 0], 0.8).max_violations, 0.8*2)
 		self.assertEqual(ChanceConstraint([self.x >= 0, self.y >= 0], 0.8).max_violations, 0.8*(2+3))
 		self.assertEqual(ChanceConstraint([self.U >= 0, self.V >= 0], 0.8).max_violations, 0.8*(2*2+3*2))
+	
+	def test_weights(self):
+		cc = ChanceConstraint([self.x >= 0], 0.8)
+		self.assertEqual(len(cc.weights), 1)
+		self.assertItemsAlmostEqual(cc.weights[0], np.array([0.5,0.5]))
+		
+		cc = ChanceConstraint([self.x >= 0], 0.8, [np.array([0,1])])
+		self.assertEqual(len(cc.weights), 1)
+		self.assertItemsAlmostEqual(cc.weights[0], np.array([0,1]))
+		
+		cc = ChanceConstraint([self.x >= 0, self.y <= 0], 0.8, [np.array([0,0.5]), np.array([0.05,0.1,0.35])])
+		self.assertEqual(len(cc.weights), 2)
+		self.assertItemsAlmostEqual(cc.weights[0], np.array([0,0.5]))
+		self.assertItemsAlmostEqual(cc.weights[1], np.array([0.05,0.1,0.35]))
+		
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.x >= 0], 0.8, [np.array([0,1]), np.array([1,0])])
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.x >= 0, self.y <= 0], 0.8, [np.array([0,1])])
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.x >= 0], 0.8, [np.array([0.1,0.2,0.7])])
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.x >= 0], 0.8, [np.array([0.5])])
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.y >= 0], 0.8, [np.array([-0.5,0.5,1.0])])
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.y >= 0], 0.8, [np.array([0.25,0.5,0.75])])
 
 	def test_margins(self):
 		cc = ChanceConstraint([self.x <= 0])

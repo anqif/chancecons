@@ -21,3 +21,5 @@
 
 6. Determine general method for reducing quantiles to solvable chance 
    constrained problem.
+
+7. Implement a VaR/CVaR atom function.

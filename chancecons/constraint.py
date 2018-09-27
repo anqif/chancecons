@@ -4,6 +4,8 @@ from cvxpy import Variable, Parameter, Zero, NonPos
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.atoms import *
 
+TOLERANCE = np.finfo(np.float).eps
+
 class ChanceConstraint(object):
 	"""A chance constraint requires at most a given fraction of the specified
 	sub-constraints to hold. For instance, if x is a variable and g(x) has
@@ -33,11 +35,16 @@ class ChanceConstraint(object):
 		if weights is None:   # Defaults to uniform weights.
 			size = sum([constr.size for constr in constraints])
 			weights = [np.full((constr.size,), 1.0/size) for constr in constraints]
-		elif len(weights) != len(constraints):
+		if len(weights) != len(constraints):
 			raise ValueError("weights must have same length as list of constraints")
 		for constr, weight in zip(constraints, weights):
 			if weight.shape != (constr.size,):
 				raise ValueError("Each weight must be a vector of same length as size of its corresponding constraint")
+			if np.any(weight < -TOLERANCE):
+				raise ValueError("weights must be non-negative")
+		wsum = np.sum([np.sum(weight) for weight in weights])
+		if np.abs(1.0 - wsum) > TOLERANCE:
+			raise ValueError("weights must sum to one")
 		
 		self.constraints = constraints
 		self.fraction = fraction
