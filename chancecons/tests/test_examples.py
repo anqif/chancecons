@@ -32,6 +32,45 @@ class TestExamples(BaseTest):
 		print("Chance constraint fraction:", np.mean(A.dot(x.value) <= 0))
 		print("Margin cutoff:", np.percentile(constr[0].margins(), q = 75))
 	
+	def test_svc(self):
+		n = 2
+		m = 50
+		shift = 10
+		
+		# Generate data.
+		X = np.random.normal(0, 5, size = (m,n))
+		y = np.ones(m)
+		y[:int(m/2)] = -1
+		X[y == 1,:] = X[y == 1,:] + shift
+		
+		# Support vector classifier with bound on number of misclassifications.
+		beta0 = Variable()
+		beta = Variable(n)
+		obj = norm(beta)
+		constr = [prob(multiply(y, X*beta + beta0) <= 1) <= 0.1]
+		p = Problem(Minimize(obj), constr)
+		p.solve()
+		
+		print("Objective:", p.value)
+		print("Fraction misclassified:", np.mean(multiply(y, X*beta + beta0).value <= 1))
+		
+		# Scatter plot of results.
+		hpos = plt.scatter(X[y == +1,0], X[y == +1,1], color = "blue")
+		hneg = plt.scatter(X[y == -1,0], X[y == -1,1], color = "red")
+		# idx = multiply(y, X*beta + beta0).value <= 1
+		# plt.scatter(X[idx,0], X[idx,1], color = "purple")
+		plt.legend([hpos, hneg], ["$y = +1$", "$y = -1$"])
+		
+		# Plot supporting hyperplane and margins.
+		slope = -beta[0].value/beta[1].value
+		intercept = -beta0.value/beta[1].value
+		margin = 1/beta[1].value
+		self.plot_abline(slope, intercept, color = "grey")
+		self.plot_abline(slope, intercept + margin, "--", color = "grey")
+		self.plot_abline(slope, intercept - margin, "--", color = "grey")
+		# plt.savefig("svc.pdf", bbox_inches = "tight", pad_inches = 0)
+		# plt.show()
+	
 	def test_portfolio(self):
 		n = 10
 		beta = 0.05
@@ -51,7 +90,7 @@ class TestExamples(BaseTest):
 		print("Optimal portfolio")
 		print("Expected return:", ret.value)
 		print("Fraction nonpositive:", np.mean(price.dot(x.value) <= 0))
-		print("Standard Deviation", np.std(ret_opt))
+		print("Standard deviation:", np.std(ret_opt))
 		
 		# Optimal portfolio without loss risk constraint.
 		constr = [sum(x) == 1, x >= -0.1]
@@ -59,16 +98,16 @@ class TestExamples(BaseTest):
 		p.solve(solver = "MOSEK")
 		ret_nocc = price.dot(x.value)
 		print("\nOptimal portfolio without loss risk constraint")
-		print("Expected return", ret.value)
-		print("Fraction nonpositive", np.mean(price.dot(x.value) <= 0))
-		print("Standard Deviation", np.std(ret_nocc))
+		print("Expected return:", ret.value)
+		print("Fraction nonpositive:", np.mean(price.dot(x.value) <= 0))
+		print("Standard deviation:", np.std(ret_nocc))
 		
 		# Uniform portfolio.
 		x_unif = np.ones(n)/n
 		ret_unif = price.dot(x_unif)
 		print("\nUniform portfolio")
-		print("Expected return", np.sum(ret_unif)/self.N)
-		print("Fraction nonpositive", np.mean(ret_unif <= 0))
+		print("Expected return:", np.sum(ret_unif)/self.N)
+		print("Fraction nonpositive:", np.mean(ret_unif <= 0))
 		
 		# Plot return distributions.
 		rets = [ret_opt, ret_nocc, ret_unif]
@@ -173,7 +212,7 @@ class TestExamples(BaseTest):
 		self.plot_cdf(y_oar.value, "b--")
 		self.plot_cdf(y_ptv.value, "r--")
 		qt = quantile(y_oar,0.3).value
-		print("OAR quantile with slack", qt)
+		print("OAR quantile with slack:", qt)
 		
 		p.solve(two_step = True, slack = True)
 		oar, = self.plot_cdf(y_oar.value, "b-")
@@ -186,5 +225,5 @@ class TestExamples(BaseTest):
 		plt.axvline(dose, color = "red", linestyle = ":", linewidth = 1.0)
 		plt.xlim(0,1.2)
 		plt.legend([oar, ptv], ["OAR", "PTV"])
-		plt.savefig("radiation_slack.pdf", bbox_inches = "tight", pad_inches = 0)
-		plt.show()
+		# plt.savefig("radiation_slack.pdf", bbox_inches = "tight", pad_inches = 0)
+		# plt.show()

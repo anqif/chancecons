@@ -60,3 +60,10 @@ class BaseTest(TestCase):
 		handle = plt.plot(x_sort, prob, *args, **kwargs)
 		plt.ylim(0,1)
 		return handle
+	
+	def plot_abline(self, slope, intercept, *args, **kwargs):
+		"""Plot a line from slope and intercept"""
+		axes = plt.gca()
+		x_vals = np.array(axes.get_xlim())
+		y_vals = intercept + slope * x_vals
+		plt.plot(x_vals, y_vals, *args, **kwargs)
