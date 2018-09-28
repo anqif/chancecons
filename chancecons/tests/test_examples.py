@@ -34,7 +34,7 @@ class TestExamples(BaseTest):
 	
 	def test_svc(self):
 		n = 2
-		m = 50
+		m = 100
 		shift = 10
 		
 		# Generate data.
@@ -47,18 +47,22 @@ class TestExamples(BaseTest):
 		beta0 = Variable()
 		beta = Variable(n)
 		obj = norm(beta)
-		constr = [prob(multiply(y, X*beta + beta0) <= 1) <= 0.1]
+		projection = multiply(y, X*beta + beta0)
+		bound = 1 - self.tolerance
+		constr = [prob(projection <= bound) <= 0.1]
 		p = Problem(Minimize(obj), constr)
 		p.solve()
 		
 		print("Objective:", p.value)
-		print("Fraction misclassified:", np.mean(multiply(y, X*beta + beta0).value <= 1))
+		print("Fraction misclassified:", np.mean(projection.value <= bound))
 		
 		# Scatter plot of results.
 		hpos = plt.scatter(X[y == +1,0], X[y == +1,1], color = "blue")
 		hneg = plt.scatter(X[y == -1,0], X[y == -1,1], color = "red")
-		# idx = multiply(y, X*beta + beta0).value <= 1
-		# plt.scatter(X[idx,0], X[idx,1], color = "purple")
+		wrong_pos = np.logical_and(projection.value <= bound, y == +1)
+		wrong_neg = np.logical_and(projection.value <= bound, y == -1)
+		plt.scatter(X[wrong_pos,0], X[wrong_pos,1], color = "white", edgecolor = "blue")
+		plt.scatter(X[wrong_neg,0], X[wrong_neg,1], color = "white", edgecolor = "red")
 		plt.legend([hpos, hneg], ["$y = +1$", "$y = -1$"])
 		
 		# Plot supporting hyperplane and margins.
