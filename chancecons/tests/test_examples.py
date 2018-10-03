@@ -26,11 +26,12 @@ class TestExamples(BaseTest):
 		obj = c.T*x
 		constr = [prob(A*x >= 0) <= 0.75, x >= 0, x <= 1]
 		p = Problem(Maximize(obj), constr)
-		p.solve()
+		p.solve(solver = "MOSEK")
 		
 		print("Objective:", p.value)
 		print("Chance constraint fraction:", np.mean(A.dot(x.value) <= 0))
 		print("Margin cutoff:", np.percentile(constr[0].margins(), q = 75))
+		# constr[0].plot_cdf(save_fig = "lp_margins.pdf", color = "blue")
 	
 	def test_svc(self):
 		n = 2
