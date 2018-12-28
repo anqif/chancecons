@@ -18,7 +18,7 @@ class TestProblem(BaseTest):
 		self.tolerance = 1e-8
 	
 	def test_solve(self):
-		b = np.abs(np.random.randn(self.x.size))
+		b = np.abs(np.random.randn(*self.x.shape))
 		obj = sum_squares(self.x - b)
 		constr = [ChanceConstraint(self.x <= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)
@@ -33,7 +33,7 @@ class TestProblem(BaseTest):
 		self.assertTrue(np.sum(self.x.value >= -self.tolerance) <= 0.8*self.x.size)
 	
 	def test_2step(self):
-		b = np.abs(np.random.randn(self.x.size))
+		b = np.abs(np.random.randn(*self.x.shape))
 		obj = sum_squares(self.x - b)
 		constr = [ChanceConstraint(self.x <= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)
@@ -44,7 +44,7 @@ class TestProblem(BaseTest):
 		self.assertTrue(p.value <= val_1step)
 	
 	def test_slack(self):
-		b = np.abs(np.random.randn(self.x.size))
+		b = np.abs(np.random.randn(*self.x.shape))
 		obj = sum_squares(self.x - b)
 		constr = [ChanceConstraint(self.x >= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)

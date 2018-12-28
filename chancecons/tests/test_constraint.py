@@ -55,6 +55,10 @@ class TestConstraint(BaseTest):
 			ChanceConstraint([self.y >= 0], 0.8, [np.array([-0.5,0.5,1.0])])
 		with self.assertRaises(ValueError) as cm:
 			ChanceConstraint([self.y >= 0], 0.8, [np.array([0.25,0.5,0.75])])
+		
+		constr = [ChanceConstraint([self.x >= 0], 0.8, [np.array([0.5,0.5])])]
+		p = ccprob.Problem(Minimize(norm(self.x)), constr)
+		p.solve()
 
 	def test_margins(self):
 		cc = ChanceConstraint([self.x <= 0])
@@ -98,16 +102,16 @@ class TestConstraint(BaseTest):
 		
 		self.x.value = [-1,1]
 		cc.slope.value = 0.5
-		val = np.sum(np.maximum(0.5 - self.x.value, 0)) - 0.5*0.8*2
+		val = np.sum(np.maximum(0.5 - self.x.value, 0))/2 - 0.5*0.8
 		self.assertItemsAlmostEqual(cc.restriction.expr.value, val)
 		
 		cc.constraints = [self.x >= 0]
-		val = np.sum(np.maximum(0.5 - self.x.value, 0)) - 0.5*0.8*2
+		val = np.sum(np.maximum(0.5 - self.x.value, 0))/2 - 0.5*0.8
 		self.assertItemsAlmostEqual(cc.restriction.expr.value, val)
 		
 		cc.fraction = 0.4
 		cc.slope.value = 1.5
-		val = np.sum(np.maximum(1.5 - self.x.value, 0)) - 1.5*0.4*2
+		val = np.sum(np.maximum(1.5 - self.x.value, 0))/2 - 1.5*0.4
 		self.assertItemsAlmostEqual(cc.restriction.expr.value, val)
 		
 		b = np.random.randn(self.A.shape[0])
@@ -115,14 +119,14 @@ class TestConstraint(BaseTest):
 		self.x.value = [-1,1]
 		cc.slope.value = 0.5
 		expr = np.abs(self.A.dot(self.x.value) - b)
-		val = np.sum(np.maximum(0.5 - expr, 0)) - 0.5*0.8*self.A.shape[0]
+		val = np.sum(np.maximum(0.5 - expr, 0))/expr.size - 0.5*0.8
 		self.assertItemsAlmostEqual(cc.restriction.expr.value, val)
 	
 	def test_restriction_2d(self):
 		cc = ChanceConstraint([self.U <= 0], 0.8)
 		self.U.value = np.array([[-1,-2], [3,4]])
 		cc.slope.value = 0.5
-		val = np.sum(np.maximum(0.5 - self.U.value, 0)) - 0.5*0.8*(2*2)
+		val = np.sum(np.maximum(0.5 - self.U.value, 0))/self.U.size - 0.5*0.8
 		self.assertItemsAlmostEqual(cc.restriction.expr.value, val)
 	
 	def test_dcp(self):

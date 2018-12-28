@@ -5,7 +5,8 @@ import cvxpy.constraints.constraint as cvxcons
 from cvxpy import Variable
 from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
-from cvxpy.constraints import Zero, NonPos
+from cvxpy.constraints.nonpos import Inequality
+from cvxpy.constraints.zero import Equality
 from chancecons.constraint import ChanceConstraint
 from chancecons.quantile2chance import Quantile2Chance
 
@@ -198,9 +199,9 @@ class Problem(object):
 			for constr, subset in zip(cc.constraints, subsets):
 				# if not np.any(subset):
 				#	continue
-				if isinstance(constr, NonPos):
+				if isinstance(constr, Inequality):
 					constrs2 += [constr.expr[subset] >= 0]   # Flip direction of inequality.
-				elif isinstance(constr, Zero):
+				elif isinstance(constr, Equality):
 					constrs2 += [constr.expr[subset] == 0]
 				else:
 					raise ValueError("Only (<=, ==, >=) constraints supported")

@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from cvxpy import Variable, Parameter, Zero, NonPos
+from cvxpy import Variable, Parameter
 from cvxpy.constraints.constraint import Constraint
+from cvxpy.constraints.nonpos import Inequality
+from cvxpy.constraints.zero import Equality
 from cvxpy.atoms import *
 
 TOLERANCE = np.finfo(np.float).eps
@@ -27,23 +29,24 @@ class ChanceConstraint(object):
 			constraints = [constraints]
 		
 		for constr in constraints:
-			if not isinstance(constr, (NonPos, Zero)):   # NonPos: expr <= 0, Zero: expr == 0.
+			if not isinstance(constr, (Inequality, Equality)):   # Inequality: expr <= 0, Equality: expr == 0.
 				raise ValueError("Only (<=, ==, >=) constraints supported")
 		if fraction < 0 or fraction > 1:
 			raise ValueError("fraction must be in [0,1]")
 		
 		if weights is None:   # Defaults to uniform weights.
 			size = sum([constr.size for constr in constraints])
-			weights = [np.full((constr.size,), 1.0/size) for constr in constraints]
+			weights = [np.full(constr.shape, 1.0/size) for constr in constraints]
 		if len(weights) != len(constraints):
 			raise ValueError("weights must have same length as list of constraints")
 		for constr, weight in zip(constraints, weights):
-			if weight.shape != (constr.size,):
-				raise ValueError("Each weight must be a vector of same length as size of its corresponding constraint")
+			if weight.shape != constr.shape:
+				raise ValueError("Each weight must be a matrix of same shape as its corresponding constraint")
 			if np.any(weight < -TOLERANCE):
 				raise ValueError("weights must be non-negative")
 		wsum = np.sum([np.sum(weight) for weight in weights])
-		if np.abs(1.0 - wsum) > TOLERANCE:
+		wnum = np.sum([weight.size for weight in weights])
+		if np.abs(1.0 - wsum) > wnum*TOLERANCE:
 			raise ValueError("weights must sum to one")
 		
 		self.constraints = constraints
@@ -159,7 +162,7 @@ class ChanceConstraint(object):
 		margins = []
 		for constr in self.constraints:
 			value = constr.expr.value
-			if value is not None and isinstance(constr, Zero):
+			if value is not None and isinstance(constr, Equality):
 				value = np.abs(value)
 			
 			if value is None or self.slack_value is None:
@@ -195,8 +198,8 @@ class ChanceConstraint(object):
 		restricted = []
 		for constr, weight in zip(self.constraints, self.weights):
 			# Convert expr == 0 to |expr| <= 0 and apply hinge approximation
-			expr = abs(constr.expr) if isinstance(constr, Zero) else constr.expr
-			restricted += [weight.T*pos(self.slope - expr - self.slack)]
+			expr = abs(constr.expr) if isinstance(constr, Equality) else constr.expr
+			restricted += [sum(multiply(weight, pos(self.slope - expr - self.slack)))]
 		return sum(restricted) <= self.slope*self.fraction
 
 class prob(object):
@@ -204,7 +207,7 @@ class prob(object):
 	"""
 	def __init__(self, *args):
 		for arg in args:
-			if not isinstance(arg, (NonPos, Zero)):   # NonPos: expr <= 0, Zero: expr == 0.
+			if not isinstance(arg, (Inequality, Equality)):   # Inequality: expr <= 0, Equality: expr == 0.
 				raise ValueError("Only (<=, ==, >=) arguments supported")
 		self.constraints = list(args)
 	
@@ -228,7 +231,7 @@ class prob(object):
 		"""
 		flipped = []
 		for constr in self.constraints:
-			if isinstance(constr, NonPos):
+			if isinstance(constr, Inequality):
 				flipped += [constr.expr >= 0]   # Flip direction of inequality.
 			else:
 				flipped += [constr]

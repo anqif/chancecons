@@ -2,7 +2,7 @@ import numpy as np
 from cvxpy import Variable, Minimize, Maximize
 from cvxpy.atoms import *
 import chancecons.problem as ccprob
-from chancecons import quantile, ChanceConstraint
+from chancecons import quantile
 from chancecons.tests.base_test import BaseTest
 
 class TestQuantile(BaseTest):
@@ -30,7 +30,7 @@ class TestQuantile(BaseTest):
 		
 		self.x.value = np.random.randn(10)
 		self.assertEqual(q.sign_from_args(), (False, False))
-		self.assertItemsAlmostEqual(q.value, np.percentile(self.x.value, self.f))
+		self.assertItemsAlmostEqual(q.value, np.percentile(self.x.value, 100*self.f))
 	
 	def test_constraints(self):
 		obj = norm(self.x)
