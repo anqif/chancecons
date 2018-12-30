@@ -242,3 +242,17 @@ class prob(object):
 		"""
 		raise NotImplementedError("Strict inequalities are not allowed.")
 	
+def OrderConstraint(constraints = None, num = 0):
+	"""An order constraint requires at most a given number of the specified
+	sub-constraints to hold.
+	"""
+	if constraints is None:
+		return ChanceConstraint(constraints, 0)
+	else:
+		for constr in constraints:
+			if not isinstance(constr, (Inequality, Equality)):   # Inequality: expr <= 0, Equality: expr == 0.
+				raise ValueError("Only (<=, ==, >=) constraints supported")
+		size = sum([constr.size for constr in constraints])
+		if num < 0 or num > size:
+			raise ValueError("num must be an integer in [0,%d]" % int(size))
+		return ChanceConstraint(constraints, num/size)

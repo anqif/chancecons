@@ -1,6 +1,7 @@
 import numpy as np
 import cvxpy.lin_ops.lin_utils as lu
 from chancecons.constraint import ChanceConstraint
+from chancecons.order import max_elems, smallest, largest
 from cvxpy.atoms.atom import Atom
 from cvxpy.atoms.axis_atom import AxisAtom
 
@@ -99,3 +100,39 @@ def median(x, axis = None, keepdims = False):
 
 def percentile(x, q, axis = None, keepdims = False):
 	return quantile(x, q/100.0, axis = axis, keepdims = keepdims)
+
+def quantile_fun(a, q, axis = None, interpolation = "linear", keepdims = False):
+	if not np.isscalar(q):
+		raise NotImplementedError
+	if q < 0 or q > 1:
+		raise ValueError("q must lie in [0,1]")
+	n = max_elems(a, axis)
+	h = n*q
+
+	if interpolation == "linear":
+		if q < 1/n:
+			return smallest(a, 1, axis, keepdims)
+		elif q == 1:
+			return largest(a, 1, axis, keepdims)
+		else:
+			lower = smallest(a, np.floor(h), axis, keepdims)
+			upper = smallest(a, np.floor(h) + 1, axis, keepdims)
+			frac = h - np.floor(h)
+			return lower + frac*(upper - lower)
+	elif interpolation == "lower":
+		return smallest(a, np.floor(h), axis, keepdims)
+	elif interpolation == "higher":
+		return smallest(a, np.ceil(h), axis, keepdims)
+	elif interpolation == "nearest":
+		return smallest(a, np.round(h), axis, keepdims)
+	elif interpolation == "midpoint":
+		if q == 0:
+			return smallest(a, 1, axis, keepdims)
+		elif q == 1:
+			return largest(a, 1, axis, keepdims)
+		else:
+			lower = smallest(a, np.floor(h), axis, keepdims)
+			upper = smallest(a, np.floor(h) + 1, axis, keepdims)
+			return (lower + upper)/2
+	else:
+		raise ValueError("interpolation can only be 'linear', 'lower', 'higher', 'midpoint', or 'nearest'")
