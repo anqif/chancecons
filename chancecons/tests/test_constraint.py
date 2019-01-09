@@ -43,6 +43,10 @@ class TestConstraint(BaseTest):
 		self.assertItemsAlmostEqual(cc.weights[0], np.array([0,0.5]))
 		self.assertItemsAlmostEqual(cc.weights[1], np.array([0.05,0.1,0.35]))
 		
+		cc = ChanceConstraint([self.U >= 0], 0.8)
+		self.assertEqual(len(cc.weights), 1)
+		self.assertItemsAlmostEqual(cc.weights[0], np.full(self.U.shape, 1.0/self.U.size))
+		
 		with self.assertRaises(ValueError) as cm:
 			ChanceConstraint([self.x >= 0], 0.8, [np.array([0,1]), np.array([1,0])])
 		with self.assertRaises(ValueError) as cm:
@@ -55,10 +59,8 @@ class TestConstraint(BaseTest):
 			ChanceConstraint([self.y >= 0], 0.8, [np.array([-0.5,0.5,1.0])])
 		with self.assertRaises(ValueError) as cm:
 			ChanceConstraint([self.y >= 0], 0.8, [np.array([0.25,0.5,0.75])])
-		
-		constr = [ChanceConstraint([self.x >= 0], 0.8, [np.array([0.5,0.5])])]
-		p = ccprob.Problem(Minimize(norm(self.x)), constr)
-		p.solve()
+		with self.assertRaises(ValueError) as cm:
+			ChanceConstraint([self.U >= 0], 0.8, [np.array([[0.125, 0.125], [0.125, 0.125], [0.25, 0.25]])])
 
 	def test_margins(self):
 		cc = ChanceConstraint([self.x <= 0])

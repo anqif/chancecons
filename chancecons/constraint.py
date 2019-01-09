@@ -6,7 +6,7 @@ from cvxpy.constraints.nonpos import Inequality
 from cvxpy.constraints.zero import Equality
 from cvxpy.atoms import *
 
-TOLERANCE = np.finfo(np.float).eps
+TOLERANCE = 1e-6   # np.finfo(np.float).eps
 
 class ChanceConstraint(object):
 	"""A chance constraint requires at most a given fraction of the specified
@@ -171,7 +171,7 @@ class ChanceConstraint(object):
 				margins += [self.slack_value + value]
 		return margins
 	
-	def plot_cdf(self, *args, **kwargs):
+	def plot_cdf(self, save_fig = None, *args, **kwargs):
 		margins = self.margins()
 		if any(margin is None for margin in margins):
 			raise Exception("One or more margins is None.")
@@ -191,6 +191,8 @@ class ChanceConstraint(object):
 		
 		plt.ylim(0, 1)
 		plt.xlim(x[0], x[-1])
+		if save_fig is not None:
+			plt.savefig(save_fig, bbox_inches = "tight", pad_inches = 0)
 		plt.show()
 	
 	@property

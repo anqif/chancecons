@@ -10,6 +10,8 @@
 3. Allow user to specify weights on constraints. Then the constraint is 
    \sum_{i=1}^n w_i*1{f_i(x) <= 0} <= p, where \sum_{i=1}^n w_i = 1. 
    By default, weights are uniform, i.e., w_i = 1/n for i = 1,...,n.
+   Weights should be specified as an array of the same size as its
+   corresponding constraint. (May store in vectorized/flattened form).
 
 4. Introduce problem as f_i(x) <= 0 for a fraction p of i = 1,...,n. 
    Elaborate that this is specific case of probabilistic constraint 
