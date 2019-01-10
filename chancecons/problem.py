@@ -7,8 +7,8 @@ from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints.nonpos import Inequality
 from cvxpy.constraints.zero import Equality
-from chancecons.constraint import ChanceConstraint
-from chancecons.quantile2chance import Quantile2Chance
+from chancecons.constraint import OrderConstraint
+from chancecons.order2chance import Order2Chance
 
 class Problem(object):
 	def __init__(self, objective, constraints = None):
@@ -24,7 +24,7 @@ class Problem(object):
 		self._regular_constraints = []
 		self._chance_constraints = []
 		for constr in constraints:
-			if isinstance(constr, ChanceConstraint):
+			if isinstance(constr, OrderConstraint):
 				self._chance_constraints += [constr]
 			elif isinstance(constr, cvxcons.Constraint):
 				self._regular_constraints += [constr]
@@ -169,9 +169,9 @@ class Problem(object):
 		
 		# Reduce quantile atoms in objective.
 		original = Problem(self._objective, self.constraints)
-		if not Quantile2Chance().accepts(original):
+		if not Order2Chance().accepts(original):
 			raise DCPError("Cannot convert quantiles to chance constraints")
-		reduced, inv_data = Quantile2Chance().apply(original)
+		reduced, inv_data = Order2Chance().apply(original)
 		
 		# First pass with convex restrictions.
 		chance_constraints = [cc for cc in reduced._chance_constraints if cc.fraction != 0]
@@ -184,11 +184,11 @@ class Problem(object):
 		
 		# Terminate if first pass does not produce solution.
 		if prob1.status not in s.SOLUTION_PRESENT:
-			self.save_results(prob1, [Quantile2Chance()], inv_data)
+			self.save_results(prob1, [Order2Chance()], inv_data)
 			raise SolverError("First pass failed with status {0}".format(self.status))
 		
 		if not use_2step:
-			self.save_results(prob1, [Quantile2Chance()], inv_data)
+			self.save_results(prob1, [Order2Chance()], inv_data)
 			return self.value
 		
 		# Replace chance constraints with exact bounds where solution of
@@ -209,7 +209,7 @@ class Problem(object):
 		# Second pass with exact bounds.
 		prob2 = cvxprob.Problem(reduced.objective, constrs2)
 		prob2.solve(*args, **kwargs)
-		self.save_results(prob2, [Quantile2Chance()], inv_data)
+		self.save_results(prob2, [Order2Chance()], inv_data)
 		return self.value
 
 	def save_results(self, problem, solving_chain, inv_data):

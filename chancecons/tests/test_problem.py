@@ -4,7 +4,7 @@ from cvxpy import Variable, Minimize
 from cvxpy.atoms import *
 from cvxpy.error import SolverError
 import chancecons.problem as ccprob
-from chancecons import ChanceConstraint
+from chancecons import OrderConstraint
 from chancecons.tests.base_test import BaseTest
 
 class TestProblem(BaseTest):
@@ -20,14 +20,14 @@ class TestProblem(BaseTest):
 	def test_solve(self):
 		b = np.abs(np.random.randn(*self.x.shape))
 		obj = sum_squares(self.x - b)
-		constr = [ChanceConstraint(self.x <= 0, 0.8)]
+		constr = [OrderConstraint(self.x <= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)
 		p.solve()
 		self.assertTrue(np.sum(self.x.value <= self.tolerance) <= 0.8*self.x.size)
 		
 		b = np.random.randn(self.A.shape[0])
 		obj = sum_squares(self.A*self.x - b)
-		constr = [ChanceConstraint(self.x >= 0, 0.8)]
+		constr = [OrderConstraint(self.x >= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)
 		p.solve()
 		self.assertTrue(np.sum(self.x.value >= -self.tolerance) <= 0.8*self.x.size)
@@ -35,7 +35,7 @@ class TestProblem(BaseTest):
 	def test_2step(self):
 		b = np.abs(np.random.randn(*self.x.shape))
 		obj = sum_squares(self.x - b)
-		constr = [ChanceConstraint(self.x <= 0, 0.8)]
+		constr = [OrderConstraint(self.x <= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)
 		p.solve(two_step = False)
 		val_1step = p.value
@@ -46,7 +46,7 @@ class TestProblem(BaseTest):
 	def test_slack(self):
 		b = np.abs(np.random.randn(*self.x.shape))
 		obj = sum_squares(self.x - b)
-		constr = [ChanceConstraint(self.x >= 0, 0.8)]
+		constr = [OrderConstraint(self.x >= 0, 0.8)]
 		p = ccprob.Problem(Minimize(obj), constr)
 		
 		p.solve(slack = False)

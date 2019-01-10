@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 from cvxpy import Variable, Minimize, Maximize
 from cvxpy.atoms import *
 from cvxpy.error import SolverError
-from chancecons import ChanceConstraint, Problem, quantile, prob
+from chancecons import Problem, quantile
 from chancecons.tests.base_test import BaseTest
 
 class TestExamples(BaseTest):
-	"""Unit tests for chance constraint examples."""
+	"""Unit tests for order constraint examples."""
 	
 	def setUp(self):
 		np.random.seed(1)
@@ -18,13 +18,13 @@ class TestExamples(BaseTest):
 
 	def test_lp(self):
 		n = 10
-		c = np.random.randn(n)
+		mu = np.random.randn(n)
 		sigma = np.eye(n)
-		A = np.random.multivariate_normal(c, sigma, self.N)
+		A = np.random.multivariate_normal(mu, sigma, self.N)
 		
 		x = Variable(n)
-		obj = c.T*x
-		constr = [prob(A*x >= 0) <= 0.75, x >= 0, x <= 1]
+		obj = mu.T*x
+		constr = [quantile(A*x, 0.25) <= 0, x >= 0, x <= 1]
 		p = Problem(Maximize(obj), constr)
 		p.solve(solver = "MOSEK")
 		
@@ -50,7 +50,7 @@ class TestExamples(BaseTest):
 		obj = norm(beta)
 		projection = multiply(y, X*beta + beta0)
 		bound = 1 - self.tolerance
-		constr = [prob(projection <= bound) <= 0.1]
+		constr = [quantile(projection, 0.1) >= bound]
 		p = Problem(Minimize(obj), constr)
 		p.solve()
 		
@@ -88,7 +88,7 @@ class TestExamples(BaseTest):
 		x = Variable(n)
 		# ret = sum(price*x)/self.N
 		ret = p_bar.T*x
-		constr = [sum(x) == 1, x >= -0.1, prob(price*x <= 0) <= beta]
+		constr = [sum(x) == 1, x >= -0.1, quantile(price*x, beta) >= 0]
 		p = Problem(Maximize(ret), constr)
 		p.solve(solver = "MOSEK")
 		ret_opt = price.dot(x.value)

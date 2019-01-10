@@ -4,8 +4,8 @@ from cvxpy.reductions import InverseData, Reduction, Solution
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.error import DCPError
 
-class Quantile2Chance(Reduction):
-	"""Replace quantile atoms with the appropriate chance constraints.
+class Order2Chance(Reduction):
+	"""Replace order atoms with the appropriate chance constraints.
 	"""
 	
 	def accepts(self, problem):
@@ -17,8 +17,8 @@ class Quantile2Chance(Reduction):
 		chance_expr, chance_constraints = self.chance_tree(problem.objective.args[0], is_minimize, True, False)
 		chance_objective = Minimize(chance_expr) if is_minimize else Maximize(chance_expr)
 		
-		if any([type(atom) == cc.quantile for con in problem.constraints for atom in con.atoms()]):
-			raise DCPError("Quantile atom may not be nested in constraints.")
+		if any([type(atom) == cc.order for con in problem.constraints for atom in con.atoms()]):
+			raise DCPError("Order atom may not be nested in constraints.")
 		new_problem = cc.problem.Problem(chance_objective, problem.constraints + chance_constraints)
 		return new_problem, inverse_data
 	
@@ -45,14 +45,14 @@ class Quantile2Chance(Reduction):
 		return chance_expr, constrs
 
 	def chance_expr(self, expr, args, is_minimize, is_incr, is_decr):
-		if type(expr) == cc.quantile:
+		if type(expr) == cc.order:
 			t = Variable(expr.shape)
 			if (is_incr and is_minimize) or (is_decr and not is_minimize):
 				constr = expr <= t   # TODO: Do we need expr.copy(args) here?
 			elif (is_incr and not is_minimize) or (is_decr and is_minimize):
 				constr = expr >= t
 			else:
-				raise DCPError("Objective must be non-decreasing or non-increasing in each quantile argument.")
+				raise DCPError("Objective must be non-decreasing or non-increasing in each order argument.")
 			return t, [constr]
 		else:
 			return expr.copy(args), []

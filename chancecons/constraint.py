@@ -8,19 +8,19 @@ from cvxpy.atoms import *
 
 TOLERANCE = np.finfo(np.float).eps
 
-class ChanceConstraint(object):
-	"""A chance constraint requires at most a given fraction of the specified
-	sub-constraints to hold. For instance, if x is a variable and g(x) has
-	dimension N, the constraint Prob(g(x) >= 0) <= p is interpreted as g_i(x) >= 0
-	for at most Np indices i = 1,...,N.
+class OrderConstraint(object):
+	"""An order constraint requires at most a given fraction of the specified
+	sub-constraints to hold. For instance, if x is a variable with dimension n,
+	the constraint OrderConstraint(x >= 0, p) is interpreted as x_i >= 0 for
+	at most np indices i = 1,...,n.
 	
 	Multiple sub-constraints will be treated as if their expressions were vectorized
 	and stacked in a single inequality. Equality constraints such as g(x) = 0 are
 	transformed into |g(x)| <= 0.
 	
-	With weights w, the chance constraint becomes \sum_{i=1}^N w_i I(g_i(x) >= 0) <= p,
+	With weights w, the order constraint becomes \sum_{i=1}^n w_i I(x_i >= 0) <= p,
 	where sum(w) = 1 and I() is the indicator function. The default is uniform weights,
-	i.e., w_i = 1/N for i = 1,...,N.
+	i.e., w_i = 1/n for i = 1,...,n.
 	"""
 	def __init__(self, constraints = None, fraction = 1.0, weights = None):
 		if constraints is None:
@@ -113,14 +113,14 @@ class ChanceConstraint(object):
 	def violation(self):
 		residual = self.residual
 		if residual is None:
-			raise ValueError("Cannot compute the violation of a chance "
+			raise ValueError("Cannot compute the violation of an order "
 							 "constraint whose expression is None-valued.")
 		return residual
     
 	def value(self, tolerance = 1e-8):
 		residual = self.residual
 		if residual is None:
-			raise ValueError("Cannot compute the value of a chance "
+			raise ValueError("Cannot compute the value of an order "
 							 "constraint whose expression is None-valued.")
 		return np.all(residual <= tolerance)
     
@@ -133,7 +133,7 @@ class ChanceConstraint(object):
 
 	def variables(self):
 		"""Returns all the variables present in the constraints including
-		the chance constraint slope.
+		the order constraint slope.
 		"""
 		# Remove duplicates.
 		return [self.slope] + list(set(var for arg in self.constraints for var in arg.variables()))
@@ -201,58 +201,3 @@ class ChanceConstraint(object):
 			expr = abs(constr.expr) if isinstance(constr, Equality) else constr.expr
 			restricted += [sum(multiply(weight, pos(self.slope - expr - self.slack)))]
 		return sum(restricted) <= self.slope*self.fraction
-
-class prob(object):
-	"""Syntatic sugar for constructing chance constraints.
-	"""
-	def __init__(self, *args):
-		for arg in args:
-			if not isinstance(arg, (Inequality, Equality)):   # Inequality: expr <= 0, Equality: expr == 0.
-				raise ValueError("Only (<=, ==, >=) arguments supported")
-		self.constraints = list(args)
-	
-	def __eq__(self, other):
-		"""Unsupported.
-		"""
-		raise NotImplementedError("Strict equalities are not allowed.")
-	
-	def __le__(self, other):
-		"""ChanceConstraint : Creates an upper chance constraint.
-		"""
-		return ChanceConstraint(self.constraints, other)
-	
-	def __lt__(self, other):
-		"""Unsupported.
-		"""
-		raise NotImplementedError("Strict inequalities are not allowed.")
-	
-	def __ge__(self, other):
-		"""ChanceConstraint : Creates a lower chance constraint.
-		"""
-		flipped = []
-		for constr in self.constraints:
-			if isinstance(constr, Inequality):
-				flipped += [constr.expr >= 0]   # Flip direction of inequality.
-			else:
-				flipped += [constr]
-		return ChanceConstraint(flipped, 1.0 - other)
-	
-	def __gt__(self, other):
-		"""Unsupported.
-		"""
-		raise NotImplementedError("Strict inequalities are not allowed.")
-	
-def OrderConstraint(constraints = None, num = 0):
-	"""An order constraint requires at most a given number of the specified
-	sub-constraints to hold.
-	"""
-	if constraints is None:
-		return ChanceConstraint(constraints, 0)
-	else:
-		for constr in constraints:
-			if not isinstance(constr, (Inequality, Equality)):   # Inequality: expr <= 0, Equality: expr == 0.
-				raise ValueError("Only (<=, ==, >=) constraints supported")
-		size = sum([constr.size for constr in constraints])
-		if num < 0 or num > size:
-			raise ValueError("num must be an integer in [0,%d]" % int(size))
-		return ChanceConstraint(constraints, num/size)
