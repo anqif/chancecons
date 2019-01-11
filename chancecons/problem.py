@@ -22,10 +22,10 @@ class Problem(object):
         # Constraints and objective are immutable.
 		self._objective = objective
 		self._regular_constraints = []
-		self._chance_constraints = []
+		self._order_constraints = []
 		for constr in constraints:
 			if isinstance(constr, OrderConstraint):
-				self._chance_constraints += [constr]
+				self._order_constraints += [constr]
 			elif isinstance(constr, cvxcons.Constraint):
 				self._regular_constraints += [constr]
 			else:
@@ -35,7 +35,7 @@ class Problem(object):
 		self._value = None
 		self._status = None
 		self._solver_stats = None
-		self._size_metrics = ChanceSizeMetrics(self)
+		self._size_metrics = OrderSizeMetrics(self)
 	
 	@property
 	def value(self):
@@ -51,15 +51,15 @@ class Problem(object):
 	
 	@property
 	def constraints(self):
-		return self._regular_constraints + self._chance_constraints
+		return self._regular_constraints + self._order_constraints
 	
 	@property
 	def regular_constraints(self):
 		return self._regular_constraints[:]
 	
 	@property
-	def chance_constraints(self):
-		return self._chance_constraints[:]
+	def order_constraints(self):
+		return self._order_constraints[:]
 	
 	def is_dcp(self):
 		return all(exp.is_dcp() for exp in [self.objective] + self.constraints)
@@ -170,14 +170,14 @@ class Problem(object):
 		# Reduce quantile atoms in objective.
 		original = Problem(self._objective, self.constraints)
 		if not Order2Chance().accepts(original):
-			raise DCPError("Cannot convert quantiles to chance constraints")
+			raise DCPError("Cannot convert quantiles to order constraints")
 		reduced, inv_data = Order2Chance().apply(original)
 		
 		# First pass with convex restrictions.
-		chance_constraints = [cc for cc in reduced._chance_constraints if cc.fraction != 0]
-		for cc in chance_constraints:   # Define slack variable for each chance constraint.
+		order_constraints = [cc for cc in reduced._order_constraints if cc.fraction != 0]
+		for cc in order_constraints:   # Define slack variable for each order constraint.
 			cc.slack = Variable(nonneg = True) if use_slack else 0
-		restrictions = [cc.restriction for cc in chance_constraints]
+		restrictions = [cc.restriction for cc in order_constraints]
 		constrs1 = reduced._regular_constraints + restrictions
 		prob1 = cvxprob.Problem(reduced.objective, constrs1)
 		prob1.solve(*args, **kwargs)
@@ -194,7 +194,7 @@ class Problem(object):
 		# Replace chance constraints with exact bounds where solution of
 		# first pass yields a relatively low constraint violation.
 		constrs2 = reduced._regular_constraints
-		for cc in chance_constraints:
+		for cc in order_constraints:
 			subsets = self.best_subset(cc.margins(), (1.0 - cc.fraction)*cc.size)
 			for constr, subset in zip(cc.constraints, subsets):
 				# if not np.any(subset):
@@ -233,7 +233,7 @@ class Problem(object):
 	
 	def __repr__(self):
 		return "Problem({0}, {1}, {2})".format(repr(self.objective), \
-					repr(self.regular_constraints), repr(self.chance_constraints))
+											   repr(self.regular_constraints), repr(self.order_constraints))
 	
 	def __neg__(self):
 		return Problem(-self.objective, self.constraints)
@@ -278,16 +278,16 @@ class Problem(object):
 
 	__truediv__ = __div__
 
-class ChanceSizeMetrics(cvxprob.SizeMetrics):
+class OrderSizeMetrics(cvxprob.SizeMetrics):
 	"""Reports various metrics regarding the problem.
 	
 	Attributes
 	----------
 	num_scalar_cc_constr : integer
-	    The number of scalar chance constraints in the problem.
+	    The number of scalar order constraints in the problem.
 	"""
 	def __init__(self, problem):
 		self.num_scalar_cc_constr = 0
-		for cc in problem.chance_constraints:
+		for cc in problem.order_constraints:
 			self.num_scalar_cc_constr += cc.size
-		super(ChanceSizeMetrics, self).__init__(problem)
+		super(OrderSizeMetrics, self).__init__(problem)

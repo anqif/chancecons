@@ -1,6 +1,8 @@
 import numpy as np
-from cvxpy import Variable
-from chancecons import quantile
+from cvxpy import Variable, Minimize
+from cvxpy.atoms import *
+import chancecons.problem as ccprob
+from chancecons import quantile, order
 from chancecons.tests.base_test import BaseTest
 
 class TestQuantile(BaseTest):
@@ -30,3 +32,9 @@ class TestQuantile(BaseTest):
 		for intp in self.interpolation:
 			q = quantile(self.x, self.f, interpolation = intp)
 			self.assertItemsAlmostEqual(q.value, np.percentile(self.x.value, 100*self.f, interpolation = intp))
+
+	def test_constraints(self):
+		obj = norm(self.x)
+		constr = [quantile(self.x, 0.6) <= -1]
+		p = ccprob.Problem(Minimize(obj), constr)
+		p.solve()

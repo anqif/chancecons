@@ -51,12 +51,12 @@ class TestProblem(BaseTest):
 		
 		p.solve(slack = False)
 		val_noslack = p.value
-		slacks = [cc.slack_value for cc in p.chance_constraints]
-		self.assertItemsAlmostEqual(slacks, len(p.chance_constraints)*[0])
+		slacks = [cc.slack_value for cc in p.order_constraints]
+		self.assertItemsAlmostEqual(slacks, len(p.order_constraints) * [0])
 		
 		p.solve(slack = True)
 		self.assertTrue(p.value <= val_noslack)
-		slacks = [cc.slack_value for cc in p.chance_constraints]
+		slacks = [cc.slack_value for cc in p.order_constraints]
 		for slack in slacks:
 			self.assertAlmostGeq(slack, 0)
 		
@@ -68,6 +68,6 @@ class TestProblem(BaseTest):
 		
 		# Solvable with slackened chance constraint.
 		p.solve(slack = True)
-		slacks = [cc.slack_value for cc in p.chance_constraints]
+		slacks = [cc.slack_value for cc in p.order_constraints]
 		for slack in slacks:
 			self.assertAlmostGeq(slack, 0)
