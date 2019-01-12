@@ -50,7 +50,7 @@ class TestExamples(BaseTest):
 		obj = norm(beta)
 		projection = multiply(y, X*beta + beta0)
 		bound = 1 - self.tolerance
-		constr = [quantile(projection, 0.1) >= bound]
+		constr = [quantile(projection, 0.1, interpolation = "higher") >= bound]
 		p = Problem(Minimize(obj), constr)
 		p.solve()
 		

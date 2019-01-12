@@ -1,6 +1,7 @@
 import numpy as np
 from cvxpy import Variable, Minimize, Maximize
 from cvxpy.atoms import *
+from cvxpy.error import DCPError
 import chancecons.problem as ccprob
 from chancecons import order
 from chancecons.tests.base_test import BaseTest
@@ -45,6 +46,13 @@ class TestOrder(BaseTest):
 		p = ccprob.Problem(Minimize(obj), constr)
 		p.solve()
 		self.assertTrue(np.sum(self.x.value >= 1 - self.tolerance) >= np.round(1-0.7)*self.x.size)
+
+	def test_reduction_dcp(self):
+		obj = norm(self.x)
+		constr = [order(self.x, 0.8) == 0]
+		p = ccprob.Problem(Minimize(obj), constr)
+		with self.assertRaises(DCPError) as cm:
+			p.solve()
 
 	def test_reduction_basic(self):
 		# Minimize order(y, 0.5) subject to y >= 0.

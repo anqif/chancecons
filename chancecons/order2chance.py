@@ -26,6 +26,8 @@ class Order2Chance(Reduction):
 				order_constraints += [order_constr] + aux_constr
 				inverse_data.cons_id_map.update({constraint.id: order_constr.id})
 			else:
+				if any([atom == cc.order for atom in constraint.atoms()]):
+					raise DCPError("Order atom may only arise in inequality constraints.")
 				order_constraints += [constraint]
 
 		new_problem = cc.problem.Problem(order_objective, order_constraints)

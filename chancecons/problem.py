@@ -2,7 +2,7 @@ import numpy as np
 import cvxpy.settings as s
 import cvxpy.problems.problem as cvxprob
 import cvxpy.constraints.constraint as cvxcons
-from cvxpy import Variable
+from cvxpy import Variable, sum_squares, vstack
 from cvxpy.error import DCPError, SolverError
 from cvxpy.problems.objective import Minimize, Maximize
 from cvxpy.constraints.nonpos import Inequality
@@ -166,6 +166,7 @@ class Problem(object):
 	def solve(self, *args, **kwargs):
 		use_2step = kwargs.pop("two_step", True)
 		use_slack = kwargs.pop("slack", False)
+		slack_reg = kwargs.pop("slack_reg", 1.0)
 		
 		# Reduce quantile atoms in objective.
 		original = Problem(self._objective, self.constraints)
@@ -179,7 +180,14 @@ class Problem(object):
 			cc.slack = Variable(nonneg = True) if use_slack else 0
 		restrictions = [cc.restriction for cc in order_constraints]
 		constrs1 = reduced._regular_constraints + restrictions
-		prob1 = cvxprob.Problem(reduced.objective, constrs1)
+		objective1 = reduced.objective
+		if use_slack:
+			slacks = [cc.slack for cc in order_constraints]
+			penalty = sum_squares(vstack(slacks))
+			if isinstance(reduced.objective, Maximize):
+				penalty = -penalty
+			objective1 = type(reduced.objective)(reduced.objective.expr + slack_reg*penalty)
+		prob1 = cvxprob.Problem(objective1, constrs1)
 		prob1.solve(*args, **kwargs)
 		
 		# Terminate if first pass does not produce solution.
@@ -213,7 +221,7 @@ class Problem(object):
 		return self.value
 
 	def save_results(self, problem, solving_chain, inv_data):
-		# TODO: We don't use inv_data right now because Quantile2Chance
+		# TODO: We don't use inv_data right now because Order2Chance
 		# just adds epigraph variables, so the reduced problem contains all
 		# the variables in the original problem (as well as the same objective).
 		self._status = problem.status

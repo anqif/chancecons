@@ -2,7 +2,7 @@ import numpy as np
 from chancecons.order import kth_smallest, kth_largest
 from chancecons.utilities import max_elems
 
-def quantile(a, q, axis = None, interpolation = "linear", keepdims = False):
+def quantile(a, q, axis = None, interpolation = "higher", keepdims = False):
 	if not np.isscalar(q):
 		raise NotImplementedError
 	if q < 0 or q > 1:
